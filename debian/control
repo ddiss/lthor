@@ -1,0 +1,12 @@
+Source: lthor
+Section: net
+Priority: extra
+Maintainer: Ed Bartosh <eduard.bartosh@intel.com>
+Build-Depends: debhelper (>= 5), libc6-dev, pkg-config, cmake, libarchive-dev
+Standards-Version: 0.0.1
+
+Package: lthor
+Architecture: any
+Depends: ${shlibs:Depends}
+Description: Flashing tool for Tizen lunchbox
+
