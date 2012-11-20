@@ -537,7 +537,7 @@ const char* find_usb_device(void)
 }
 
 
-int wait_and_open_port(const char *portname)
+int open_port(const char *portname, int wait)
 {
 	int once = 0;
 	int fd;
@@ -554,6 +554,11 @@ int wait_and_open_port(const char *portname)
 		else
 			dev = portname;
 
+		if (!wait && dev == NULL) {
+			fprintf(stderr, "line %d: device not found\n", __LINE__);
+			return -1;
+		}
+
 		if (dev) {
 			fd = open(dev, O_RDWR);
 			if (fd == -1) {
@@ -564,13 +569,14 @@ int wait_and_open_port(const char *portname)
 		}
 
 		if (!once) {
+			if (!wait)
+			    return -1;
 			printf("\nUSB port is not detected yet... \n");
 			printf("Make sure phone(device) should be in a download mode \n");
 			printf("before connecting phone to PC with USB cable.\n");
 			printf("(How to enter download mode : press <volume-down> + <power> key)\n\n");
 			once = 1;
 		}
-
 		sleep(1);
 	}
 
@@ -585,7 +591,7 @@ int wait_and_open_port(const char *portname)
 	 * Flow control (RTS/CTS) should be disabled, because
 	 * the firmware doesn't deal with it properly.
 	 */
-	cfmakeraw(&tios);
+        cfmakeraw(&tios);
 	r = tcsetattr(fd, TCSANOW, &tios);
 	if (r < 0) {
 		fprintf(stderr, "line %d: tcsetattr failed\n", __LINE__);
@@ -605,6 +611,11 @@ int wait_and_open_port(const char *portname)
 	}
 
 	return fd;
+}
+
+int wait_and_open_port(const char *portname)
+{
+	return open_port(portname, 1);
 }
 
 /*
@@ -1002,6 +1013,44 @@ int process_download(const char *portname, const char *pitfile, char **tarfileli
 	return 0;
 }
 
+/* Check if LHOR protocol is in working state */
+int check_proto(const char *portname)
+{
+	int fd;
+	/* int r;
+        struct res_pkt resp;*/
+
+	/* connect to the target */
+	fd = open_port(portname, 0);
+        if (fd < 0)
+		return -1;
+
+	/* Below I commented out my attempt to check if LHOR protocol is enabled
+	 * by quering protocol version.
+	 * The main problem is that I didn't find a way to 'close' the session,
+	 * to put protocol into previous state.
+	 * */
+
+	/*
+	r = thor_handshake(fd);
+	if (r < 0) {
+		fprintf(stderr, "line %d: handshake failed\n", __LINE__);
+		return -1;
+        }
+
+	r = send_request_timeout(fd, RQT_INFO, RQT_INFO_VER_PROTOCOL, NULL, 0, NULL, 0, &resp, DEFAULT_TIMEOUT);
+        if (r) {
+		fprintf(stderr, "RQT_INFO_VER_PROTOCOL, status = %08x\n", r);
+		return -1;
+	} */
+
+	/* Here should be some code, which closes protocol session, resets it somehow */
+	
+	close(fd);
+
+	return 0;
+}
+
 int test_tar_entry(struct data_src *tardata)
 {
 	static unsigned char *chunk;
@@ -1097,7 +1146,7 @@ int test_tar_file_list(char **tarfilelist)
 
 void usage(const char *exename)
 {
-	fprintf(stderr, "%s: [-t] [-v] [-d port] [-p pitfile] [tar] [tar] ..\n",
+	fprintf(stderr, "%s: [-t] [-v] [-i] [-d port] [-p pitfile] [tar] [tar] ..\n",
 			exename);
 	exit(1);
 }
@@ -1106,6 +1155,7 @@ int main(int argc, char **argv)
 {
 	const char *exename, *portname, *pitfile;
 	int opt;
+	int opt_check = 0;
 
 	exename = argv[0];
 
@@ -1132,6 +1182,12 @@ int main(int argc, char **argv)
 			continue;
 		}
 
+		if  (!strcmp(argv[opt], "-c")) {
+		        opt_check = 1;
+		        opt++;
+		        continue;
+		}
+
 		if (!strcmp(argv[opt], "-p")) {
 			pitfile = argv[opt+1];
 			opt += 2;
@@ -1149,6 +1205,9 @@ int main(int argc, char **argv)
 
 	if (opt_test)
 		return test_tar_file_list(&argv[opt]);
+
+	if (opt_check)
+		return check_proto(portname);
 
 	if ((pitfile)&&(opt == argc))
 		return process_download(portname, pitfile, NULL);
