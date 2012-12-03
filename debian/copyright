@@ -1,0 +1,21 @@
+This package was debianized by Ed Bartosh <eduard.bartosh@intel.com>
+on Mon, 12 Nov 2012 19:08:56 +0200
+
+Copyright:
+        Copyright (C) 2012 Intel Inc
+
+License:
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+ On Debian systems, the full text of the Apache License version 2.0
+ can be found in the file  /usr/share/common-licenses/Apache-2.0
+
+Packaging:
+        Copyright (C) 2012 Intel Inc by Ed Bartosh <eduard.bartosh@intel.com>
+        released under GPLv2
+

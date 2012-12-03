@@ -6,7 +6,7 @@ Summary:       Flashing tool for Tizen lunchbox
 Version:       1.0
 Release:       1
 Group:         Development/Tools/Other
-License:       Samsung reserved
+License:       Apache
 URL:           https://download.tizendev.org/tools/lthor/
 Source0:       %{name}_%{version}.tar.gz
 
