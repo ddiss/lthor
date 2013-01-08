@@ -445,7 +445,7 @@ const char* find_usb_device(void)
 	char buffer[11];
 	const char *dirname = "/sys/bus/usb/devices";
 	char usbpath[0x400];
-	char usbdir[0x40];
+	char usbdir[0x100];
 	char *tty = NULL;
 
 	d = opendir(dirname);
@@ -583,6 +583,7 @@ int open_port(const char *portname, int wait)
 	r = tcgetattr(fd, &tios);
 	if (r < 0) {
 		fprintf(stderr, "line %d: tcgetattr failed\n", __LINE__);
+		close(fd);
 		return -1;
 	}
 
@@ -595,18 +596,21 @@ int open_port(const char *portname, int wait)
 	r = tcsetattr(fd, TCSANOW, &tios);
 	if (r < 0) {
 		fprintf(stderr, "line %d: tcsetattr failed\n", __LINE__);
+		close(fd);
 		return -1;
 	}
 
 	r = tcflush(fd, TCIOFLUSH);
 	if (r < 0) {
 		fprintf(stderr, "line %d: tcflush failed\n", __LINE__);
+		close(fd);
 		return -1;
 	}
 
 	r = thor_handshake(fd);
 	if (r < 0) {
 		fprintf(stderr, "line %d: handshake failed\n", __LINE__);
+		close(fd);
 		return -1;
 	}
 
@@ -942,6 +946,7 @@ int process_download(const char *portname, const char *pitfile, char **tarfileli
 		printf("\x1b[0;33;1m%s :\x1b[0m\n", *tfl);
 		if (get_entry_size_in_tar(*tfl, &len) < 0) {
 			perror("Error");
+			close(fd);
 			return -1;
 		}
 		total += len;
@@ -953,6 +958,7 @@ int process_download(const char *portname, const char *pitfile, char **tarfileli
 		if (pit_length < 0) {
 			fprintf(stderr, "line %d: failed to get pit length\n"
 				, __LINE__);
+			close(fd);
 			return -1;
 		}
 		total += pit_length;
@@ -970,6 +976,7 @@ int process_download(const char *portname, const char *pitfile, char **tarfileli
 	 */
 	if (r) {
 		fprintf(stderr, "RQT_DL_INIT, status = %08x\n", r);
+		close(fd);
 		return -1;
 	}
 
