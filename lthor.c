@@ -1100,7 +1100,7 @@ int test_tar_entry(struct data_src *tardata)
 			return -1;
 		}
 
-		if ((!chunksize > 0 && chunksize <= trans_unit_size)) {
+		if (!(chunksize <= trans_unit_size && chunksize > 0)) {
 			free(chunk);
 			return -1;
 		}
@@ -1190,7 +1190,8 @@ int main(int argc, char **argv)
 
 	printf("\n");
 	printf("Linux Thor downloader, version %s \n", PACKAGE_VERSION);
-	printf("Authors: YoungJin Lee <yj0701.lee@samsung.com>\n\n");
+	printf("Authors: YoungJin Lee <yj0701.lee@samsung.com>, "
+			"Jaehoon You <jaehoon.you@samsung.com>\n\n");
 
 	while (opt < argc) {
 		/* check if we're verbose */
