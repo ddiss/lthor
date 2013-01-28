@@ -7,6 +7,6 @@ Standards-Version: 0.0.1
 
 Package: lthor
 Architecture: any
-Depends: ${shlibs:Depends}
+Depends: ${shlibs:Depends}, udev
 Description: Flashing tool for Tizen lunchbox
 
