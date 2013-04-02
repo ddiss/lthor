@@ -3,7 +3,7 @@
 #
 Name:          lthor
 Summary:       Flashing tool for Tizen lunchbox
-Version:       1.0
+Version:       1.3
 Release:       1
 Group:         Development/Tools/Other
 License:       Apache
