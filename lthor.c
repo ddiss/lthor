@@ -897,6 +897,7 @@ int download_pitfile(int fd, const char *pitfile)
 	if (r < 0) {
 		fprintf(stderr, "line %d: failed to download %s\n", __LINE__,
 				pitfile);
+		filedata_close(&filedata);
 		return r;
 	}
 
@@ -927,9 +928,12 @@ int download_single_tarfile(int fd, const char *tarfile)
 		printf("[\x1b[0;32;1m%s\x1b[0m]\n", filename);
 		r = download_single_file(fd, &tardata.src, BINARY_TYPE_NORMAL);
 		if (r < 0) {
-			fprintf(stderr, "line %d: failed to download %s\n",
-					__LINE__, filename);
-			break;
+			fprintf(stderr, "line %d: failed to download %s\n", __LINE__, filename);
+			fprintf(stderr, "\nIn some cases, lthor needs enough memory\n");
+			fprintf(stderr, "Please check free memory in your Host PC ");
+			fprintf(stderr, "and unload some heavy applications\n");
+			tardata_close(&tardata);
+			return r;
 		}
 	}
 
@@ -1001,7 +1005,7 @@ int process_download(const char *portname, const char *pitfile, char **tarfileli
 		fprintf(stderr, "\nDownload PIT file : %s\n\n", pitfile);
 		r = download_pitfile(fd, pitfile);
 		if (r < 0) {
-			fprintf(stderr, "failed to download %s\n", pitfile);
+			fprintf(stderr, "\nfailed to download %s\n", pitfile);
 			close(fd);
 			return r;
 		}
@@ -1011,7 +1015,7 @@ int process_download(const char *portname, const char *pitfile, char **tarfileli
 		fprintf(stderr, "\nDownload files from %s\n\n", *tarfilelist);
 		r = download_single_tarfile(fd, *tarfilelist);
 		if (r < 0) {
-			fprintf(stderr, "failed to download %s\n", *tarfilelist);
+			fprintf(stderr, "\nfailed to download %s\n", *tarfilelist);
 			close(fd);
 			return r;
 		}
