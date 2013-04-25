@@ -50,6 +50,8 @@ udevcontrol --reload-rules ||:
 
 %files
 %defattr(-,root,root)
+%dir %{_sysconfdir}/udev
+%dir %{_sysconfdir}/udev/rules.d
 %{_bindir}/%{name}
 %config %{_sysconfdir}/udev/rules.d/*.rules
 
