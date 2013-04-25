@@ -2,11 +2,14 @@ Source: lthor
 Section: net
 Priority: extra
 Maintainer: Ed Bartosh <eduard.bartosh@intel.com>
-Build-Depends: debhelper (>= 5), libc6-dev, pkg-config, cmake, libarchive-dev
-Standards-Version: 0.0.1
+Build-Depends: debhelper (>= 5), pkg-config, cmake, libarchive-dev
+Standards-Version: 3.9.4
 
 Package: lthor
 Architecture: any
-Depends: ${shlibs:Depends}, udev
-Description: Flashing tool for Tizen lunchbox
-
+Depends: ${shlibs:Depends}, ${misc:Depends}, udev
+Description: Phone flashing tool
+ Tool for downloading binaries from a Linux host PC to a target phone.
+ It uses a USB cable as a physical communication medium.
+ It is prerequisite that the boot-loader should support download protocol
+ which is compatible with 'lthor'
