@@ -7,7 +7,7 @@ Version:       1.4
 Release:       1
 Group:         Development/Tools/Other
 License:       Apache
-URL:           https://download.tizendev.org/tools/lthor/
+URL:           http://download.tizen.org/tools/latest-release/
 Source0:       %{name}_%{version}.tar.gz
 
 BuildRequires:  libarchive-devel
