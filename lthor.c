@@ -1186,7 +1186,7 @@ int test_tar_file_list(char **tarfilelist)
 
 void usage(const char *exename)
 {
-	fprintf(stderr, "%s: [-t] [-v] [-i] [-d port] [-p pitfile] [tar] [tar] ..\n",
+	fprintf(stderr, "%s: [-t] [-v] [-c] [-d port] [-p pitfile] [tar] [tar] ..\n",
 			exename);
 	exit(1);
 }
