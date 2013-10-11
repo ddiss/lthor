@@ -1,3 +1,16 @@
 Copyright (c) Samsung Electronics Co., Ltd. All rights reserved.
 Except as noted, this software is licensed under Apache License, Version 2.
 Please, see the LICENSE.APLv2 file for Apache License terms and conditions.
+
+----------------------------------------------------------------------------
+<OS X>
+
+(Requirements: OS X 10.7, 10.8)
+For OS X 'pkg-config' package is required. It can be downloaded from:
+http://www.freedesktop.org/wiki/Software/pkg-config/
+
+The libarchive download is available at:
+http://www.libarchive.org/
+
+On OS X always execute lthor with -d /dev/cu.MYDEV
+ex) lthor -d /dev/cu.SAMSUNG_VSP *.tar

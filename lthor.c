@@ -183,6 +183,9 @@ int send_chunks(int fd, struct data_src *senddata, size_t size)
 
 		r = write(fd, chunk, trans_unit_size);
 		if (r != trans_unit_size) {
+			if (r > 0)
+				fprintf(stderr, "line %d: %d bytes requested, %d written\n",
+						__LINE__, trans_unit_size, r);
 			fprintf(stderr, "line %d: failed to send data\n", __LINE__);
 			free(chunk);
 			return -1;
@@ -577,11 +580,20 @@ int open_port(const char *portname, int wait)
 		}
 
 		if (dev) {
-			fd = open(dev, O_RDWR);
+			/* On OS X open serial port with O_NONBLOCK flag */
+			fd = open(dev, O_RDWR | O_NONBLOCK);
+
 			if (fd == -1) {
 				perror("port open error!!\n");
 				return -1;
 			}
+
+			/*now clear the O_NONBLOCK flag to enable writing big data chunks at once*/
+			if (fcntl(fd, F_SETFL, 0)) {
+				printf("line %d: error clearing O_NONBLOCK\n", __LINE__);
+				return -1;
+			}
+
 			break;
 		}
 
