@@ -36,12 +36,6 @@
 
 #include "thor-proto.h"
 
-#define USB_VENDOR_SAMSUNG "04e8"
-#define USB_DEVICE_Z100 "6601"
-#define USB_DEVICE_Z100_DEVGURU "6860"
-#define USB_DEVICE_DEVGURU "685d"
-#define USB_DEVICE_OLD_DOWNLOADER "1204"
-
 #define KB			(1024)
 #define MB			(1024*KB)
 #define DEFAULT_PKT_SIZE	(1*MB)
@@ -448,19 +442,16 @@ char *device_from_usb_tty_directory(const char *usbpath)
 
 	closedir(d);
 
-	if (ret) {
+	if (ret)
 		fprintf(stderr, "USB port is detected : %s\n\n", ret);
-	} else {
-		fprintf(stderr, "USB port is "
-			"\x1b[0;31;1mnot\x1b[0m detected !\n\n", ret);
-	}
 
 	return ret;
 }
 
 const char* find_usb_device(void)
 {
-	DIR *d;
+	DIR *usb_dir;
+	DIR *usb_dir_in;
 	char *p;
 	char buffer[11];
 	const char *dirname = "/sys/bus/usb/devices";
@@ -468,14 +459,14 @@ const char* find_usb_device(void)
 	char usbdir[0x100];
 	char *tty = NULL;
 
-	d = opendir(dirname);
-	if (!d)
+	usb_dir = opendir(dirname);
+	if (!usb_dir)
 		return NULL;
 
 	while (1) {
 		struct dirent *de;
 
-		de = readdir(d);
+		de = readdir(usb_dir);
 		if (!de)
 			break;
 
@@ -488,42 +479,12 @@ const char* find_usb_device(void)
 		strcat(usbpath, usbdir);
 		strcat(usbpath, "/");
 		p = &usbpath[strlen(usbpath)];
-
-		/* match the vendor ID */
-		strcat(p, "idVendor");
-		getfile(usbpath, buffer, sizeof buffer);
-		if (opt_verbose)
-			fprintf(stderr, "vendorId = >%s< %zd\n", buffer,
-					strlen(buffer));
-		if (strcmp(buffer, USB_VENDOR_SAMSUNG))
-			continue;
-
-		/* match the product ID */
-		strcpy(p, "idProduct");
-		getfile(usbpath, buffer, sizeof buffer);
-		if (opt_verbose)
-			fprintf(stderr, "product = >%s< %zd\n", buffer,
-					strlen(buffer));
-
-		if (!strcmp(buffer, USB_DEVICE_OLD_DOWNLOADER))
-			fprintf(stderr, "Old bootloader detected!\n");
-
-		/* supported product ID */
-		if (strcmp(buffer, USB_DEVICE_Z100) &&
-			strcmp(buffer, USB_DEVICE_Z100_DEVGURU) &&
-			strcmp(buffer, USB_DEVICE_DEVGURU))
-			continue;
-
-		if (opt_verbose)
-			fprintf(stderr, "found %s:%s!\n", USB_VENDOR_SAMSUNG,
-					buffer);
-		closedir(d);
-
 		p[0] = 0x00;
-		d = opendir(usbpath);
+
+		usb_dir_in = opendir(usbpath);
 		if (opt_verbose)
 			fprintf(stderr, "at %s\n", usbpath);
-		while ((de = readdir(d))) {
+		while ((de = readdir(usb_dir_in))) {
 			if (strlen(de->d_name) < strlen(usbdir))
 				continue;
 			if (de->d_type != DT_DIR)
@@ -535,23 +496,18 @@ const char* find_usb_device(void)
 			if (opt_verbose)
 				fprintf(stderr, "search for tty on %s\n", usbpath);
 			tty = device_from_usb_tty_directory(usbpath);
-			if (tty)
-				break;
+			if (tty) {
+				closedir(usb_dir_in);
+				return tty;
+			}
 		}
-
-		closedir(d);
-		if ((opt_verbose) && (!tty))
-			fprintf(stderr, "idVendor and idProduct are matched"
-				"but no tty description\n");
-
-		return tty;
+		closedir(usb_dir_in);
 	}
 
-	closedir(d);
+	closedir(usb_dir);
 
 	if (opt_verbose)
-		fprintf(stderr, "No USB device found with matching "
-			"idVendor and idProduct\n" );
+		fprintf(stderr, "No USB device found with matching\n");
 
 	return NULL;
 }
