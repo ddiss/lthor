@@ -40,7 +40,6 @@
 #define MB			(1024*KB)
 #define DEFAULT_PKT_SIZE	(1*MB)
 #define DEFAULT_TIMEOUT	(60000)			/* 1 minute */
-#define DEFAULT_PORT		"/dev/ttyACM0"
 
 /* data abstraction */
 struct data_src {
@@ -324,27 +323,31 @@ int request_reboot(int fd)
 	return r;
 }
 
-int thor_handshake(int fd)
+int thor_handshake(int fd, int timeout, int log_on)
 {
 	char buffer[4];
 	int r;
 
 	r = write(fd, "THOR", 4);
 	if (r != 4) {
-		fprintf(stderr, "line %d: failed to write signature bytes\n",
-				__LINE__);
+		if (log_on)
+			fprintf(stderr, "line %d: failed to write signature bytes\n",
+					__LINE__);
 		return -1;
 	}
 
-	r = serial_read(fd, buffer, 4, DEFAULT_TIMEOUT);
+	r = serial_read(fd, buffer, 4, timeout);
 	if (r != 4) {
-		fprintf(stderr, "line %d: failed to read signature bytes\n",
-				__LINE__);
+		if (log_on)
+			fprintf(stderr, "line %d: failed to read signature bytes\n",
+					__LINE__);
 		return -1;
 	}
 
 	if (memcmp(buffer, "ROHT", 4)) {
-		fprintf(stderr, "line %d: signature byte mismatch\n", __LINE__);
+		if (log_on)
+			fprintf(stderr, "line %d: signature byte mismatch\n",
+					__LINE__);
 		return -1;
 	}
 
@@ -442,13 +445,10 @@ char *device_from_usb_tty_directory(const char *usbpath)
 
 	closedir(d);
 
-	if (ret)
-		fprintf(stderr, "USB port is detected : %s\n\n", ret);
-
 	return ret;
 }
 
-const char* find_usb_device(void)
+int find_usb_device(void)
 {
 	DIR *usb_dir;
 	DIR *usb_dir_in;
@@ -458,10 +458,11 @@ const char* find_usb_device(void)
 	char usbpath[0x400];
 	char usbdir[0x100];
 	char *tty = NULL;
+	int fd, r;
 
 	usb_dir = opendir(dirname);
 	if (!usb_dir)
-		return NULL;
+		return -1;
 
 	while (1) {
 		struct dirent *de;
@@ -484,23 +485,38 @@ const char* find_usb_device(void)
 		usb_dir_in = opendir(usbpath);
 		if (opt_verbose)
 			fprintf(stderr, "at %s\n", usbpath);
+
 		while ((de = readdir(usb_dir_in))) {
 			if (strlen(de->d_name) < strlen(usbdir))
 				continue;
+
 			if (de->d_type != DT_DIR)
 				continue;
+
 			if (strncmp(de->d_name, usbdir, strlen(usbdir)))
 				continue;
 
 			strcpy(p, de->d_name);
 			if (opt_verbose)
 				fprintf(stderr, "search for tty on %s\n", usbpath);
+
 			tty = device_from_usb_tty_directory(usbpath);
 			if (tty) {
+				fd = get_termios(tty);
+				if (fd < 0)
+					continue;
+
+				r = thor_handshake(fd, 2000, 0);
+				if (r < 0) {
+					close(fd);
+					continue;
+				}
+
 				closedir(usb_dir_in);
-				return tty;
+				return fd;
 			}
 		}
+
 		closedir(usb_dir_in);
 	}
 
@@ -509,60 +525,26 @@ const char* find_usb_device(void)
 	if (opt_verbose)
 		fprintf(stderr, "No USB device found with matching\n");
 
-	return NULL;
+	return -1;
 }
 
-
-int open_port(const char *portname, int wait)
+int get_termios(const char *portname)
 {
-	int once = 0;
-	int fd;
-	int r;
 	struct termios tios;
-	const char *dev;
+	int fd, r;
 
-	if (opt_test)
-		return open("/dev/null", O_RDWR);
+	/* On OS X open serial port with O_NONBLOCK flag */
+	fd = open(portname, O_RDWR | O_NONBLOCK);
 
-	while (1) {
-		if (!portname)
-			dev = find_usb_device();
-		else
-			dev = portname;
+	if (fd == -1) {
+		perror("port open error!!\n");
+		return -1;
+	}
 
-		if (!wait && dev == NULL) {
-			fprintf(stderr, "line %d: device not found\n", __LINE__);
-			return -1;
-		}
-
-		if (dev) {
-			/* On OS X open serial port with O_NONBLOCK flag */
-			fd = open(dev, O_RDWR | O_NONBLOCK);
-
-			if (fd == -1) {
-				perror("port open error!!\n");
-				return -1;
-			}
-
-			/*now clear the O_NONBLOCK flag to enable writing big data chunks at once*/
-			if (fcntl(fd, F_SETFL, 0)) {
-				printf("line %d: error clearing O_NONBLOCK\n", __LINE__);
-				return -1;
-			}
-
-			break;
-		}
-
-		if (!once) {
-			if (!wait)
-			    return -1;
-			printf("\nUSB port is not detected yet... \n");
-			printf("Make sure phone(device) should be in a download mode \n");
-			printf("before connecting phone to PC with USB cable.\n");
-			printf("(How to enter download mode : press <volume-down> + <power> key)\n\n");
-			once = 1;
-		}
-		sleep(1);
+	/*now clear the O_NONBLOCK flag to enable writing big data chunks at once*/
+	if (fcntl(fd, F_SETFL, 0)) {
+		printf("line %d: error clearing O_NONBLOCK\n", __LINE__);
+		return -1;
 	}
 
 	r = tcgetattr(fd, &tios);
@@ -592,14 +574,56 @@ int open_port(const char *portname, int wait)
 		return -1;
 	}
 
-	r = thor_handshake(fd);
-	if (r < 0) {
-		fprintf(stderr, "line %d: handshake failed\n", __LINE__);
-		close(fd);
-		return -1;
-	}
-
 	return fd;
+}
+
+int open_port(const char *portname, int wait)
+{
+	int once = 0;
+	int fd, r;
+
+	if (opt_test)
+		return open("/dev/null", O_RDWR);
+
+	while (1) {
+		if (!portname) {
+			fd = find_usb_device();
+			if (fd >= 0)
+				return fd;
+
+		} else {
+			fd = get_termios(portname);
+			if (fd < 0) {
+				fprintf(stderr, "USB port is "
+					"\x1b[0;31;1mnot\x1b[0m detected !\n\n");
+				return fd;
+			}
+
+			r = thor_handshake(fd, DEFAULT_TIMEOUT, 1);
+			if (r < 0) {
+				close(fd);
+				return -1;
+			}
+
+			return fd;
+		}
+
+		if (!wait) {
+			fprintf(stderr, "line %d: device not found\n", __LINE__);
+			return -1;
+		}
+
+		if (!once) {
+			if (!wait)
+			    return -1;
+			printf("\nUSB port is not detected yet... \n");
+			printf("Make sure phone(device) should be in a download mode \n");
+			printf("before connecting phone to PC with USB cable.\n");
+			printf("(How to enter download mode : press <volume-down> + <power> key)\n\n");
+			once = 1;
+		}
+		sleep(1);
+	}
 }
 
 int wait_and_open_port(const char *portname)
