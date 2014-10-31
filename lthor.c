@@ -176,10 +176,12 @@ int send_chunks(int fd, struct data_src *senddata, size_t size)
 
 		r = write(fd, chunk, trans_unit_size);
 		if (r != trans_unit_size) {
-			if (r > 0)
-				fprintf(stderr, "line %d: %d bytes requested, %d written\n",
-						__LINE__, trans_unit_size, r);
-			fprintf(stderr, "line %d: failed to send data\n", __LINE__);
+			if (opt_verbose) {
+				if (r > 0)
+					fprintf(stderr, "line %d: %d bytes requested, %d written\n",
+							__LINE__, trans_unit_size, r);
+				fprintf(stderr, "line %d: failed to send data\n", __LINE__);
+			}
 			free(chunk);
 			return -1;
 		}
@@ -300,9 +302,14 @@ int send_request_timeout(int fd, request_type req_id, int req_sub_id,
 		memcpy(pres, &resp, RES_PKT_SIZE);
 
 	if (resp.ack != 0) {
-		fprintf(stderr, "line %d: ack reports fail. ack = %d\n",
-				__LINE__, resp.ack);
-		return -1;
+		if (opt_verbose) {
+			fprintf(stderr, "\x1b[0;31;1mMissmatch\x1b[0m\n");
+			fprintf(stderr, "line %d: ack reports fail. ack = %d\n",
+					__LINE__, resp.ack);
+		} else {
+			fprintf(stderr, "\x1b[1A\x1b[16C\x1b[0;31;1mMissmatch\x1b[0m\n");
+		}
+		return -2;
 	}
 
 	return resp.ack;
@@ -653,8 +660,9 @@ int download_single_file(int fd, struct data_src *senddata, int filetype)
 	r = send_request_timeout(fd, RQT_DL, RQT_DL_FILE_INFO, int_data, 2,
 		(char **)&filename, 1, &resp, DEFAULT_TIMEOUT);
 	if (r < 0) {
-		fprintf(stderr, "RQT_DL_FILE_INFO, status = %08x\n", r);
-		return -1;
+		if (opt_verbose)
+			fprintf(stderr, "RQT_DL_FILE_INFO, status = %08x\n", r);
+		return r;
 	}
 	trans_unit_size = resp.int_data[0];
 
@@ -919,7 +927,7 @@ int download_single_tarfile(int fd, const char *tarfile)
 
 		printf("[\x1b[0;32;1m%s\x1b[0m]\n", filename);
 		r = download_single_file(fd, &tardata.src, BINARY_TYPE_NORMAL);
-		if (r < 0) {
+		if (r == -1) {
 			fprintf(stderr, "line %d: failed to download %s\n", __LINE__, filename);
 			fprintf(stderr, "\nIn some cases, lthor needs enough memory\n");
 			fprintf(stderr, "Please check free memory in your Host PC ");
@@ -933,7 +941,7 @@ int download_single_tarfile(int fd, const char *tarfile)
 
 	tardata_close(&tardata);
 
-	return r;
+	return 0;
 }
 
 int process_download(const char *portname, const char *pitfile, char **tarfilelist)
