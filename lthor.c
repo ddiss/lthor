@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <dirent.h>
 #include <libgen.h>
+#include <getopt.h>
 
 #include <archive.h>
 #include <archive_entry.h>
@@ -1174,74 +1175,81 @@ int test_tar_file_list(char **tarfilelist)
 
 void usage(const char *exename)
 {
-	fprintf(stderr, "%s: [-t] [-v] [-c] [-d port] [-p pitfile] [tar] [tar] ..\n",
-			exename);
+	fprintf(stderr,
+		"Usage: %s: [options] [-d port] [-p pitfile] [tar] [tar] ..\n"
+		"Options:\n"
+		"  -t, --test                         Don't flash, just check if given tar files are correct\n"
+		"  -v, --verbose                      Be more verbose\n"
+		"  -c, --check                        Don't flash, just check if given tty port is thor capable\n"
+		"  -d=<port>, --port=<port>           Use specific tty port for communication\n"
+		"  -p=<pitfile>, --pitfile=<pitfile>  Flash new partition table\n"
+		"  --help                             Print this help message\n",
+		exename);
 	exit(1);
 }
 
 int main(int argc, char **argv)
 {
-	const char *exename, *portname, *pitfile;
+	const char *exename = NULL, *portname = NULL, *pitfile = NULL;
 	int opt;
 	int opt_check = 0;
-
-	exename = argv[0];
-
-	opt = 1;
-
-	pitfile = NULL;
-	portname = NULL;
+	int optindex;
+	struct option opts[] = {
+		{"test", no_argument, 0, 't'},
+		{"verbose", no_argument, 0, 'v'},
+		{"check", no_argument, 0, 'c'},
+		{"port", required_argument, 0, 'd'},
+		{"pitfile", required_argument, 0, 'p'},
+		{"help", no_argument, 0, 1},
+		{0, 0, 0, 0}
+	};
 
 	printf("\n");
 	printf("Linux Thor downloader, version %s \n", PACKAGE_VERSION);
-	printf("Authors: Jaehoon You <jaehoon.you@samsung.com>\n\n");
+	printf("Authors: Jaehoon You <jaehoon.you@samsung.com>\n"
+	       "         Krzysztof Opasiak <k.opasiak@samsung.com>\n\n");
 
-	while (opt < argc) {
-		/* check if we're verbose */
-		if (!strcmp(argv[opt], "-v")) {
-			opt_verbose = 1;
-			opt++;
-			continue;
-		}
+	exename = argv[0];
 
-		if (!strcmp(argv[opt], "-t")) {
+	while (1) {
+		opt = getopt_long(argc, argv, "tvcd:p:", opts, &optindex);
+		if (opt == -1)
+			break;
+
+		switch (opt) {
+		case 't':
 			opt_test = 1;
-			opt++;
-			continue;
+			break;
+		case 'v':
+			opt_verbose = 1;
+			break;
+		case 'c':
+			opt_check = 1;
+			break;
+		case 'd':
+			portname = optarg;
+			break;
+		case 'p':
+			pitfile = optarg;
+			break;
+		case 1:
+		default:
+			usage(exename);
+			return 0;
 		}
-
-		if  (!strcmp(argv[opt], "-c")) {
-		        opt_check = 1;
-		        opt++;
-		        continue;
-		}
-
-		if (!strcmp(argv[opt], "-p")) {
-			pitfile = argv[opt+1];
-			opt += 2;
-			continue;
-		}
-
-		if (!strcmp(argv[opt], "-d") && (opt+1) < argc) {
-			portname = argv[opt+1];
-			opt += 2;
-			continue;
-		}
-
-		break;
 	}
 
 	if (opt_test)
-		return test_tar_file_list(&argv[opt]);
+		return test_tar_file_list(&(argv[optind]));
 
 	if (opt_check)
 		return check_proto(portname);
 
-	if ((pitfile)&&(opt == argc))
+	if (pitfile && !argv[optind])
 		return process_download(portname, pitfile, NULL);
 
-	if (opt < argc)
-		return process_download(portname, pitfile, &argv[opt]);
+	if (argv[optind])
+		return process_download(portname, pitfile, &(argv[optind]));
 
 	usage(exename);
 	return 0;
