@@ -3,13 +3,14 @@
 #
 Name:          lthor
 Summary:       Flashing tool for Tizen lunchbox
-Version:       1.5
+Version:       2.0
 Release:       1
 Group:         Development/Tools/Other
 License:       Apache
 URL:           http://download.tizen.org/tools/latest-release/
 Source0:       %{name}_%{version}.tar.gz
 
+BuildRequires:  libusb-devel
 BuildRequires:  libarchive-devel
 BuildRequires:  cmake
 BuildRequires:  pkg-config

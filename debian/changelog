@@ -1,3 +1,10 @@
+lthor (2.0) unstable; urgency=low
+
+  * Upgraded to v2.0
+  * Use libusb instead of cdc-acm kernel driver
+
+ -- Krzysztof Opasiak <k.opasiak@samsung.com>  Wed, 13 Jul 2016 11:54:20 +0200
+
 lthor (1.5) unstable; urgency=low
 
   * Upgraded to v1.5
