@@ -65,5 +65,7 @@ int t_usb_find_device(struct thor_device_id *dev_id, int wait,
 
 void t_usb_close_device(struct thor_device_handle *th);
 
+int t_acm_prepare_device(struct thor_device_handle *th);
+
 #endif /* THOR_INTERNAL_H__ */
 
