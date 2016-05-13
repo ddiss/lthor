@@ -30,6 +30,11 @@
 #define KB			(1024)
 #define MB			(1024*KB)
 
+#define TERM_YELLOW      "\x1b[0;33;1m"
+#define TERM_LIGHT_GREEN "\x1b[0;32;1m"
+#define TERM_RED         "\x1b[0;31;1m"
+#define TERM_NORMAL      "\x1b[0m"
+
 struct helper {
 	struct thor_data_src *data;
 	enum thor_data_type type;
@@ -111,7 +116,7 @@ static int init_data_parts(const char *pitfile, char **tarfilelist,
 	}
 
 	while (*tarfilelist) {
-		printf("\x1b[0;33;1m%s :\x1b[0m\n", *tarfilelist);
+		printf(TERM_YELLOW "%s :" TERM_NORMAL "\n" , *tarfilelist);
 		data_parts[entry].type = THOR_NORMAL_DATA;
 		data_parts[0].name = *tarfilelist;
 		ret = thor_get_data_src(*tarfilelist, THOR_FORMAT_TAR,
@@ -145,7 +150,8 @@ static void report_next_entry(thor_device_handle *th,
 {
 	struct time_data *tdata = user_data;
 
-	printf("[\x1b[0;32;1m%s\x1b[0m]\n", data->get_name(data));
+	printf("[" TERM_LIGHT_GREEN "%s" TERM_NORMAL"]\n",
+	       data->get_name(data));
 	init_time_data(tdata);
 }
 
@@ -234,17 +240,17 @@ static int do_download(thor_device_handle *th, struct helper *data_parts,
 
 	ret = thor_end_session(th);
 	if (ret)
-		fprintf(stderr, "\x1b[0;33;1mmissing RQT_DL_EXIT response "
-			"from broken bootloader\x1b[0m\n");
+		fprintf(stderr, TERM_YELLOW "missing RQT_DL_EXIT response "
+			"from broken bootloader" TERM_NORMAL"\n");
 
 	fprintf(stderr, "\nrequest target reboot : ");
 
 	ret = thor_reboot(th);
 	if (ret) {
-		fprintf(stderr, "\x1b[0;31;1mfailed\x1b[0m\n");
+		fprintf(stderr, TERM_RED "failed" TERM_NORMAL"\n");
 		goto out;
 	} else {
-		fprintf(stderr, "\x1b[0;32;1msuccess\x1b[0m\n");
+		fprintf(stderr, TERM_LIGHT_GREEN "success" TERM_NORMAL "\n");
 	}
 out:
 	return ret;
@@ -287,7 +293,7 @@ static int process_download(struct thor_device_id *dev_id, const char *pitfile,
 
 		switch (data_parts[i].type) {
 		case THOR_PIT_DATA:
-			printf("\x1b[0;33;1m%s : \x1b[0m%zuk\n",
+			printf(TERM_YELLOW "%s :" TERM_NORMAL "%zuk\n",
 			       data_parts[i].name, size/KB);
 			break;
 		case THOR_NORMAL_DATA:
@@ -298,7 +304,7 @@ static int process_download(struct thor_device_id *dev_id, const char *pitfile,
 	}
 
 	printf("-------------------------\n");
-	printf("\t\x1b[0;33;1mtotal\x1b[0m :\t%.2fMB\n\n",
+	printf("\t" TERM_YELLOW "total" TERM_NORMAL" :\t%.2fMB\n\n",
 	       (double)total_size/MB);
 
 	ret = do_download(th, data_parts, entries, total_size);
