@@ -175,27 +175,203 @@ int thor_end_session(thor_device_handle *th)
 	return ret;
 }
 
-static int t_thor_send_chunk(thor_device_handle *th,
-			     unsigned char *chunk, size_t size,
-			     int chunk_number)
+static int t_thor_submit_chunk(struct t_thor_data_chunk *chunk)
 {
-	struct data_res_pkt resp;
 	int ret;
 
-	ret = t_usb_send(th, chunk, size, DEFAULT_TIMEOUT);
-	if (ret < 0)
+	chunk->data_finished = chunk->resp_finished = 0;
+
+	ret = t_usb_submit_transfer(&chunk->data_transfer);
+	if (ret)
+		goto out;
+
+	memset(&chunk->resp, 0, DATA_RES_PKT_SIZE);
+	ret = t_usb_submit_transfer(&chunk->resp_transfer);
+	if (ret)
+		goto cancel_data_transfer;
+
+	return 0;
+cancel_data_transfer:
+	t_usb_cancel_transfer(&chunk->data_transfer);
+out:
+	return ret;
+}
+
+static int t_thor_prep_next_chunk(struct t_thor_data_chunk *chunk,
+				  struct t_thor_data_transfer *transfer_data)
+{
+	size_t to_read;
+	int ret;
+
+	to_read = transfer_data->data_left - transfer_data->data_in_progress;
+	if (to_read <= 0) {
+		printf("to big data in progress\n");
+		fflush(stdout);
+		return -EINVAL;
+	}
+
+	chunk->useful_size = to_read > chunk->trans_unit_size ?
+		chunk->trans_unit_size : to_read;
+
+	ret = transfer_data->data->get_block(transfer_data->data,
+					  chunk->buf, chunk->useful_size);
+	if (ret < 0 || ret != chunk->useful_size)
 		return ret;
 
-	memset(&resp, 0, DATA_RES_PKT_SIZE);
+	memset(chunk->buf + chunk->useful_size, 0,
+	       chunk->trans_unit_size - chunk->useful_size);
+	chunk->chunk_number = transfer_data->chunk_number++;
 
-	ret = t_usb_recv(th, &resp, DATA_RES_PKT_SIZE, DEFAULT_TIMEOUT);
-	if (ret < 0)
-		return ret;
+	ret = t_thor_submit_chunk(chunk);
+	if (!ret)
+		transfer_data->data_in_progress += chunk->useful_size;
 
-	if (resp.cnt != chunk_number)
-		return ret;
+	return ret;
+}
 
-	return resp.ack;
+static void check_next_chunk(struct t_thor_data_chunk *chunk,
+			     struct t_thor_data_transfer *transfer_data)
+{
+	/* If there is some more data to be queued */
+	if (transfer_data->data_left - transfer_data->data_in_progress) {
+		int ret;
+
+		ret = t_thor_prep_next_chunk(chunk, transfer_data);
+		if (ret) {
+			transfer_data->ret = ret;
+			transfer_data->completed = 1;
+		}
+	} else {
+		/* Last one turns the light off */
+		if (transfer_data->data_in_progress == 0)
+			transfer_data->completed = 1;
+	}
+}
+
+static void data_transfer_finished(struct t_usb_transfer *_data_transfer)
+{
+	struct t_thor_data_chunk *chunk = container_of(_data_transfer,
+						       struct t_thor_data_chunk,
+						       data_transfer);
+	struct t_thor_data_transfer *transfer_data = chunk->user_data;
+
+	chunk->data_finished = 1;
+
+	if (_data_transfer->cancelled || transfer_data->ret)
+		return;
+
+	if (_data_transfer->ret) {
+		transfer_data->ret = _data_transfer->ret;
+		transfer_data->completed = 1;
+	}
+
+	if (chunk->resp_finished)
+		check_next_chunk(chunk, transfer_data);
+}
+
+static void resp_transfer_finished(struct t_usb_transfer *_resp_transfer)
+{
+	struct t_thor_data_chunk *chunk = container_of(_resp_transfer,
+						       struct t_thor_data_chunk,
+						       resp_transfer);
+	struct t_thor_data_transfer *transfer_data = chunk->user_data;
+
+	chunk->resp_finished = 1;
+	transfer_data->data_in_progress -= chunk->useful_size;
+
+	if (_resp_transfer->cancelled || transfer_data->ret) {
+		if (transfer_data->data_in_progress == 0)
+			transfer_data->completed = 1;
+		return;
+	}
+
+	if (_resp_transfer->ret) {
+		transfer_data->ret = _resp_transfer->ret;
+		goto complete_all;
+	}
+
+	if (chunk->resp.cnt != chunk->chunk_number) {
+		printf ("chunk number mismatch: %d != %d\n",
+			chunk->resp.cnt, chunk->chunk_number);
+		fflush(stdout);
+		transfer_data->ret = -EINVAL;
+		goto complete_all;
+	}
+
+	transfer_data->data_sent += chunk->useful_size;
+	transfer_data->data_left -= chunk->useful_size;
+	if (transfer_data->report_progress)
+		transfer_data->report_progress(transfer_data->th,
+					       transfer_data->data,
+					       transfer_data->data_sent,
+					       transfer_data->data_left,
+					       chunk->chunk_number,
+					       transfer_data->user_data);
+
+	if (chunk->data_finished)
+		check_next_chunk(chunk, transfer_data);
+
+	return;
+complete_all:
+	transfer_data->completed = 1;
+	return;
+}
+
+static int t_thor_init_chunk(struct t_thor_data_chunk *chunk,
+			     thor_device_handle *th,
+			     size_t trans_unit_size,
+			     void *user_data)
+{
+	int ret;
+
+	chunk->user_data = user_data;
+	chunk->useful_size = 0;
+	chunk->trans_unit_size = trans_unit_size;
+
+	chunk->buf = malloc(trans_unit_size);
+	if (!chunk->buf)
+		return -ENOMEM;
+
+	ret = t_usb_init_out_transfer(&chunk->data_transfer, th, chunk->buf,
+				     trans_unit_size, data_transfer_finished,
+				     DEFAULT_TIMEOUT);
+	if (ret)
+		goto free_buf;
+
+	ret = t_usb_init_in_transfer(&chunk->resp_transfer, th,
+				     (unsigned char *)&chunk->resp,
+				      DATA_RES_PKT_SIZE,
+				      resp_transfer_finished,
+				      2*DEFAULT_TIMEOUT);
+	if (ret)
+		goto cleanup_data_transfer;
+
+	return 0;
+cleanup_data_transfer:
+	t_usb_cleanup_transfer(&chunk->data_transfer);
+free_buf:
+	free(chunk->buf);
+
+	return ret;
+}
+
+static void t_thor_cleanup_chunk(struct t_thor_data_chunk *chunk)
+{
+	t_usb_cleanup_transfer(&chunk->data_transfer);
+	t_usb_cleanup_transfer(&chunk->resp_transfer);
+	free(chunk->buf);
+}
+
+static inline int
+t_thor_handle_events(struct t_thor_data_transfer *transfer_data)
+{
+	return t_usb_handle_events_completed(&transfer_data->completed);
+}
+
+static inline void t_thor_cancel_chunk(struct t_thor_data_chunk *chunk)
+{
+	t_usb_cancel_transfer(&chunk->data_transfer);
+	t_usb_cancel_transfer(&chunk->resp_transfer);
 }
 
 static int t_thor_send_raw_data(thor_device_handle *th,
@@ -204,48 +380,60 @@ static int t_thor_send_raw_data(thor_device_handle *th,
 				thor_progress_cb report_progress,
 				void *user_data)
 {
-	unsigned char *chunk;
-	size_t data_left;
-	size_t size;
-	size_t data_sent = 0;
-	int chunk_number = 1;
+	struct t_thor_data_chunk chunk[3];
+	struct t_thor_data_transfer transfer_data;
+	int i, j;
 	int ret;
 
-	chunk = malloc(trans_unit_size);
-	if (!chunk)
-		return -ENOMEM;
-
-	data_left = data->get_file_length(data);
-
-	while (data_left) {
-		size = data_left > trans_unit_size ?
-			trans_unit_size : data_left;
-
-		ret = data->get_block(data, chunk, size);
-		if (ret < 0 || ret != size)
-			goto cleanup;
-
-		memset(chunk + size, 0, trans_unit_size - size);
-		if (th) {
-			ret = t_thor_send_chunk(th, chunk, trans_unit_size,
-						chunk_number);
-			if (ret)
-				goto cleanup;
-		}
-
-		data_sent += size;
-		data_left -= size;
-		++chunk_number;
-		if (report_progress)
-			report_progress(th, data, data_sent, data_left,
-					chunk_number, user_data);
+	for (i = 0; i < ARRAY_SIZE(chunk); ++i) {
+		ret = t_thor_init_chunk(chunk + i, th, trans_unit_size,
+					&transfer_data);
+		if (ret)
+			goto cleanup_chunks;
 	}
 
-	ret = 0;
-cleanup:
-	free(chunk);
-	return ret;;
+	transfer_data.data = data;
+	transfer_data.report_progress = report_progress;
+	transfer_data.user_data = user_data;
+	transfer_data.data_left = data->get_file_length(data);
+	transfer_data.data_sent = 0;
+	transfer_data.chunk_number = 1;
+	transfer_data.completed = 0;
+	transfer_data.data_in_progress = 0;
+	transfer_data.ret = 0;
 
+	for (i = 0;
+	     i < ARRAY_SIZE(chunk)
+	      && (transfer_data.data_left - transfer_data.data_in_progress > 0);
+	     ++i) {
+		ret = t_thor_prep_next_chunk(chunk + i, &transfer_data);
+		if (ret)
+			goto cancel_chunks;
+	}
+
+	t_thor_handle_events(&transfer_data);
+
+	if (transfer_data.data_in_progress) {
+		ret = transfer_data.ret;
+		goto cancel_chunks;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(chunk); ++i)
+		t_thor_cleanup_chunk(chunk + i);
+
+	return transfer_data.ret;
+
+cancel_chunks:
+	for (j = 0; j < i; ++j)
+		t_thor_cancel_chunk(chunk + j);
+	if (i)
+		t_thor_handle_events(&transfer_data);
+	i = ARRAY_SIZE(chunk);
+cleanup_chunks:
+	for (j = 0; j < i; ++j)
+		t_thor_cleanup_chunk(chunk + j);
+
+	return ret;
 }
 
 int thor_send_data(thor_device_handle *th, struct thor_data_src *data,

@@ -571,3 +571,66 @@ int t_usb_recv_req(struct thor_device_handle *th, struct res_pkt *resp)
 	return ret;
 }
 
+static void t_usb_transfer_finished(struct libusb_transfer *ltransfer)
+{
+	struct t_usb_transfer *t = ltransfer->user_data;
+
+	t->cancelled = 0;
+	t->ret = 0;
+	switch (ltransfer->status) {
+	case LIBUSB_TRANSFER_COMPLETED:
+		if (ltransfer->actual_length != t->size)
+			t->ret = -EIO;
+		break;
+	case LIBUSB_TRANSFER_CANCELLED:
+		t->cancelled = 1;
+		break;
+	default:
+		t->ret = -EIO;
+	}
+
+	if (t->transfer_finished)
+		t->transfer_finished(t);
+}
+
+int t_usb_init_transfer(struct t_usb_transfer *t,
+			libusb_device_handle *devh,
+			unsigned char ep,
+			unsigned char *buf, size_t size,
+			t_usb_transfer_cb transfer_finished,
+			unsigned int timeout)
+{
+	t->ltransfer = libusb_alloc_transfer(0);
+	if (!t->ltransfer)
+		return -ENOMEM;
+
+	t->transfer_finished = transfer_finished;
+	t->size = size;
+	libusb_fill_bulk_transfer(t->ltransfer, devh, ep,
+				  buf, size, t_usb_transfer_finished, t,
+				  0);
+
+	return 0;
+}
+
+int t_usb_handle_events_completed(int *completed)
+{
+	struct timeval tv = {0, 0};
+	int ret = 0;
+
+	while (!*completed) {
+		ret = libusb_handle_events_timeout_completed(NULL,
+							     &tv,
+							     completed);
+		if (ret < 0 && ret != LIBUSB_ERROR_BUSY
+		    && ret != LIBUSB_ERROR_TIMEOUT
+		    && ret != LIBUSB_ERROR_OVERFLOW
+		    && ret != LIBUSB_ERROR_INTERRUPTED)
+			break;
+		else
+			ret = 0;
+	}
+
+	return ret;
+}
+
