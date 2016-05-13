@@ -44,5 +44,7 @@ struct thor_device_handle {
 	int data_ep_out;
 };
 
+int t_file_get_data_src(const char *path, struct thor_data_src **data);
+
 #endif /* THOR_INTERNAL_H__ */
 
