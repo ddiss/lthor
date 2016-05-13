@@ -157,7 +157,7 @@ static int t_thor_exec_cmd(thor_device_handle *th,  request_type req_id,
 				    NULL, 0, NULL);
 }
 
-int thor_start_session(thor_device_handle *th, size_t total)
+int thor_start_session(thor_device_handle *th, off_t total)
 {
 	int ret;
 
@@ -200,7 +200,7 @@ out:
 static int t_thor_prep_next_chunk(struct t_thor_data_chunk *chunk,
 				  struct t_thor_data_transfer *transfer_data)
 {
-	size_t to_read;
+	off_t to_read;
 	int ret;
 
 	to_read = transfer_data->data_left - transfer_data->data_in_progress;
@@ -319,7 +319,7 @@ complete_all:
 
 static int t_thor_init_chunk(struct t_thor_data_chunk *chunk,
 			     thor_device_handle *th,
-			     size_t trans_unit_size,
+			     off_t trans_unit_size,
 			     void *user_data)
 {
 	int ret;
@@ -376,7 +376,7 @@ static inline void t_thor_cancel_chunk(struct t_thor_data_chunk *chunk)
 
 static int t_thor_send_raw_data(thor_device_handle *th,
 				struct thor_data_src *data,
-				size_t trans_unit_size,
+				off_t trans_unit_size,
 				thor_progress_cb report_progress,
 				void *user_data)
 {
@@ -441,11 +441,11 @@ int thor_send_data(thor_device_handle *th, struct thor_data_src *data,
 		   void *user_data, thor_next_entry_cb report_next_entry,
 		   void *ne_cb_data)
 {
-	size_t filesize;
+	off_t filesize;
 	const char *filename;
 	struct res_pkt resp;
 	int32_t int_data[2];
-	size_t trans_unit_size;
+	off_t trans_unit_size;
 	int ret;
 
 	while (1) {

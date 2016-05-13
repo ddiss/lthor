@@ -488,7 +488,7 @@ void t_usb_close_device(struct thor_device_handle *th)
 }
 
 int t_usb_send(struct thor_device_handle *th, unsigned char *buf,
-	       size_t count, int timeout)
+	       off_t count, int timeout)
 {
 	int ret;
 	int transferred = 0;
@@ -509,7 +509,7 @@ int t_usb_send(struct thor_device_handle *th, unsigned char *buf,
 }
 
 int t_usb_recv(struct thor_device_handle *th, unsigned char *buf,
-	       size_t count, int timeout)
+	       off_t count, int timeout)
 {
 	int ret;
 	int transferred = 0;
@@ -596,7 +596,7 @@ static void t_usb_transfer_finished(struct libusb_transfer *ltransfer)
 int t_usb_init_transfer(struct t_usb_transfer *t,
 			libusb_device_handle *devh,
 			unsigned char ep,
-			unsigned char *buf, size_t size,
+			unsigned char *buf, off_t size,
 			t_usb_transfer_cb transfer_finished,
 			unsigned int timeout)
 {

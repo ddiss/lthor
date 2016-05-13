@@ -29,6 +29,7 @@
 
 #define KB			(1024)
 #define MB			(1024*KB)
+#define GB			((off_t)1024*MB)
 
 #define TERM_YELLOW      "\x1b[0;33;1m"
 #define TERM_LIGHT_GREEN "\x1b[0;32;1m"
@@ -203,7 +204,7 @@ static void report_progress(thor_device_handle *th, struct thor_data_src *data,
 }
 
 static int do_download(thor_device_handle *th, struct helper *data_parts,
-		       int entries, size_t total_size)
+		       int entries, off_t total_size)
 {
 	struct time_data tdata;
 	int i;
@@ -260,7 +261,7 @@ static int process_download(struct thor_device_id *dev_id, const char *pitfile,
 		     char **tarfilelist)
 {
 	thor_device_handle *th;
-	size_t total_size = 0;
+	off_t total_size = 0;
 	struct helper *data_parts;
 	int nfiles;
 	int entries = 0;
@@ -289,12 +290,12 @@ static int process_download(struct thor_device_id *dev_id, const char *pitfile,
 
 	/* Count the total size of data */
 	for (i = 0; i < entries; ++i) {
-		size_t size = data_parts[i].data->get_size(data_parts[i].data);
+		off_t size = data_parts[i].data->get_size(data_parts[i].data);
 
 		switch (data_parts[i].type) {
 		case THOR_PIT_DATA:
-			printf(TERM_YELLOW "%s :" TERM_NORMAL "%zuk\n",
-			       data_parts[i].name, size/KB);
+			printf(TERM_YELLOW "%s :" TERM_NORMAL "%jdk\n",
+			       data_parts[i].name, (intmax_t)(size/KB));
 			break;
 		case THOR_NORMAL_DATA:
 		default:
@@ -307,8 +308,26 @@ static int process_download(struct thor_device_id *dev_id, const char *pitfile,
 	printf("\t" TERM_YELLOW "total" TERM_NORMAL" :\t%.2fMB\n\n",
 	       (double)total_size/MB);
 
+	if (total_size > (4*GB - 1*KB)) {
+		fprintf(stderr,
+			TERM_RED
+			"[ERROR] Images over 4GB are not supported by thor protocol.\n"
+			TERM_NORMAL);
+		ret = -EOVERFLOW;
+		goto release_data_srcs;
+	}
+
+	if (total_size > (2*GB - 1*KB)) {
+		fprintf(stderr,
+			TERM_RED
+			"[WARNING] Not all bootloaders support images over 2GB.\n"
+			"          If your download will fail this may be a reason.\n"
+			TERM_NORMAL);
+	}
+
 	ret = do_download(th, data_parts, entries, total_size);
 
+release_data_srcs:
 	for (i = 0; i < entries; ++i)
 		thor_release_data_src(data_parts[i].data);
 

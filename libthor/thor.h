@@ -37,9 +37,9 @@ enum thor_data_type {
 };
 
 struct thor_data_src {
-	size_t (*get_file_length)(struct thor_data_src *src);
-	size_t (*get_size)(struct thor_data_src *src);
-	size_t (*get_block)(struct thor_data_src *src, void *data, size_t len);
+	off_t (*get_file_length)(struct thor_data_src *src);
+	off_t (*get_size)(struct thor_data_src *src);
+	off_t (*get_block)(struct thor_data_src *src, void *data, off_t len);
 	const char* (*get_name)(struct thor_data_src *src);
 	int (*next_file)(struct thor_data_src *src);
 	void (*release)(struct thor_data_src *src);
@@ -76,7 +76,7 @@ int thor_open(struct thor_device_id *dev_id, int wait,
 void thor_close(thor_device_handle *th);
 
 /* Start thor "session" */
-int thor_start_session(thor_device_handle *th, size_t total);
+int thor_start_session(thor_device_handle *th, off_t total);
 
 /* Send a butch of data to the target */
 int thor_send_data(thor_device_handle *th, struct thor_data_src *data,

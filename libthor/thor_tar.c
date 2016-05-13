@@ -28,10 +28,10 @@ struct tar_data_src {
 	struct thor_data_src src;
 	struct archive *ar;
 	struct archive_entry *ae;
-	size_t total_size;
+	off_t total_size;
 };
 
-static size_t tar_get_file_length(struct thor_data_src *src)
+static off_t tar_get_file_length(struct thor_data_src *src)
 {
 	struct tar_data_src *tardata =
 		container_of(src, struct tar_data_src, src);
@@ -39,7 +39,7 @@ static size_t tar_get_file_length(struct thor_data_src *src)
 	return archive_entry_size(tardata->ae);
 }
 
-static size_t tar_get_size(struct thor_data_src *src)
+static off_t tar_get_size(struct thor_data_src *src)
 {
 	struct tar_data_src *tardata =
 		container_of(src, struct tar_data_src, src);
@@ -47,8 +47,8 @@ static size_t tar_get_size(struct thor_data_src *src)
 	return tardata->total_size;
 }
 
-static size_t tar_get_data_block(struct thor_data_src *src,
-				 void *data, size_t len)
+static off_t tar_get_data_block(struct thor_data_src *src,
+				 void *data, off_t len)
 {
 	struct tar_data_src *tardata =
 		container_of(src, struct tar_data_src, src);

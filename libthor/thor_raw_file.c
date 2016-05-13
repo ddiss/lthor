@@ -31,11 +31,11 @@ struct file_data_src {
 	struct thor_data_src src;
 	int fd;
 	const char* filename;
-	size_t filesize;
+	off_t filesize;
 	int pos;
 };
 
-static size_t file_get_file_length(struct thor_data_src *src)
+static off_t file_get_file_length(struct thor_data_src *src)
 {
 	struct file_data_src *filedata =
 		container_of(src, struct file_data_src, src);
@@ -43,8 +43,8 @@ static size_t file_get_file_length(struct thor_data_src *src)
 	return filedata->filesize;
 }
 
-static size_t file_get_data_block(struct thor_data_src *src,
-				  void *data, size_t len)
+static off_t file_get_data_block(struct thor_data_src *src,
+				  void *data, off_t len)
 {
 	struct file_data_src *filedata =
 		container_of(src, struct file_data_src, src);

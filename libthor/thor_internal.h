@@ -51,7 +51,7 @@ typedef void (*t_usb_transfer_cb)(struct t_usb_transfer *);
 struct t_usb_transfer {
 	struct libusb_transfer *ltransfer;
 	t_usb_transfer_cb transfer_finished;
-	size_t size;
+	off_t size;
 	int ret;
 	int cancelled;
 };
@@ -60,10 +60,10 @@ struct t_thor_data_chunk {
 	struct t_usb_transfer data_transfer;
 	struct t_usb_transfer resp_transfer;
 	void *user_data;
-	size_t useful_size;
+	off_t useful_size;
 	struct data_res_pkt resp;
 	unsigned char *buf;
-	size_t trans_unit_size;
+	off_t trans_unit_size;
 	int chunk_number;
 	int data_finished;
 	int resp_finished;
@@ -74,9 +74,9 @@ struct t_thor_data_transfer {
 	struct thor_data_src *data;
 	thor_progress_cb report_progress;
 	void *user_data;
-	size_t data_left;
-	size_t data_sent;
-	size_t data_in_progress;
+	off_t data_left;
+	off_t data_sent;
+	off_t data_in_progress;
 	int chunk_number;
 	int completed;
 	int ret;
@@ -88,7 +88,7 @@ int t_usb_handle_events_completed(int *completed);
 int t_usb_init_transfer(struct t_usb_transfer *t,
 			libusb_device_handle *devh,
 			unsigned char ep,
-			unsigned char *buf, size_t size,
+			unsigned char *buf, off_t size,
 			t_usb_transfer_cb transfer_finished,
 			unsigned int timeout);
 
@@ -99,7 +99,7 @@ static inline void t_usb_cleanup_transfer(struct t_usb_transfer *t)
 
 static inline int t_usb_init_in_transfer(struct t_usb_transfer *t,
 			   struct thor_device_handle *th,
-			   unsigned char *buf, size_t size,
+			   unsigned char *buf, off_t size,
 			   t_usb_transfer_cb transfer_finished,
 			   unsigned int timeout)
 {
@@ -109,7 +109,7 @@ static inline int t_usb_init_in_transfer(struct t_usb_transfer *t,
 
 static inline int t_usb_init_out_transfer(struct t_usb_transfer *t,
 			   struct thor_device_handle *th,
-			   unsigned char *buf, size_t size,
+			   unsigned char *buf, off_t size,
 			   t_usb_transfer_cb transfer_finished,
 			   unsigned int timeout)
 {
@@ -132,10 +132,10 @@ int t_file_get_data_src(const char *path, struct thor_data_src **data);
 int t_tar_get_data_src(const char *path, struct thor_data_src **data);
 
 int t_usb_send(struct thor_device_handle *th, unsigned char *buf,
-	       size_t count, int timeout);
+	       off_t count, int timeout);
 
 int t_usb_recv(struct thor_device_handle *th, unsigned char *buf,
-	       size_t count, int timeout);
+	       off_t count, int timeout);
 
 int t_usb_send_req(struct thor_device_handle *th, request_type req_id,
 		   int req_sub_id, int *idata, int icnt, char **sdata,
