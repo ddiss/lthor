@@ -48,5 +48,22 @@ int t_file_get_data_src(const char *path, struct thor_data_src **data);
 
 int t_tar_get_data_src(const char *path, struct thor_data_src **data);
 
+int t_usb_send(struct thor_device_handle *th, unsigned char *buf,
+	       size_t count, int timeout);
+
+int t_usb_recv(struct thor_device_handle *th, unsigned char *buf,
+	       size_t count, int timeout);
+
+int t_usb_send_req(struct thor_device_handle *th, request_type req_id,
+		   int req_sub_id, int *idata, int icnt, char **sdata,
+		   int scnt);
+
+int t_usb_recv_req(struct thor_device_handle *th, struct res_pkt *resp);
+
+int t_usb_find_device(struct thor_device_id *dev_id, int wait,
+		      struct thor_device_handle *th);
+
+void t_usb_close_device(struct thor_device_handle *th);
+
 #endif /* THOR_INTERNAL_H__ */
 
