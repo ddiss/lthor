@@ -33,6 +33,8 @@ struct file_data_src {
 	const char* filename;
 	off_t filesize;
 	int pos;
+	struct thor_data_src_entry entry;
+	struct thor_data_src_entry *ent[2];
 };
 
 static off_t file_get_file_length(struct thor_data_src *src)
@@ -78,6 +80,14 @@ static int file_next_file(struct thor_data_src *src)
 	return !filedata->pos ? ++filedata->pos : 0;
 }
 
+static struct thor_data_src_entry **file_get_entries(struct thor_data_src *src)
+{
+	struct file_data_src *filedata =
+		container_of(src, struct file_data_src, src);
+
+	return filedata->ent;
+}
+
 int t_file_get_data_src(const char *path, struct thor_data_src **data)
 {
 	int ret;
@@ -110,12 +120,17 @@ int t_file_get_data_src(const char *path, struct thor_data_src **data)
 	fdata->filesize = lseek(fdata->fd, 0, SEEK_END);
 	lseek(fdata->fd, 0, SEEK_SET);
 
+	fdata->entry.name = (char *)fdata->filename;
+	fdata->entry.size = fdata->filesize;
+	fdata->ent[0] = &fdata->entry;
+	fdata->ent[1] = NULL;
 	fdata->src.get_file_length = file_get_file_length;
 	fdata->src.get_size = file_get_file_length;
 	fdata->src.get_block = file_get_data_block;
 	fdata->src.get_name = file_get_file_name;
 	fdata->src.release = file_release;
 	fdata->src.next_file = file_next_file;
+	fdata->src.get_entries = file_get_entries;
 	fdata->pos = 0;
 
 	*data = &fdata->src;

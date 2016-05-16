@@ -36,12 +36,18 @@ enum thor_data_type {
 	THOR_PIT_DATA,
 };
 
+struct thor_data_src_entry {
+	char *name;
+	off_t size;
+};
+
 struct thor_data_src {
 	off_t (*get_file_length)(struct thor_data_src *src);
 	off_t (*get_size)(struct thor_data_src *src);
 	off_t (*get_block)(struct thor_data_src *src, void *data, off_t len);
 	const char* (*get_name)(struct thor_data_src *src);
 	int (*next_file)(struct thor_data_src *src);
+	struct thor_data_src_entry **(*get_entries)(struct thor_data_src *src);
 	void (*release)(struct thor_data_src *src);
 };
 

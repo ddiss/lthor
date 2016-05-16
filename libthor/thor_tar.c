@@ -20,15 +20,23 @@
 #include <archive_entry.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/queue.h>
 
 #include "thor.h"
 #include "thor_internal.h"
+
+struct entry_container {
+	struct thor_data_src_entry entry;
+	STAILQ_ENTRY(entry_container) node;
+};
 
 struct tar_data_src {
 	struct thor_data_src src;
 	struct archive *ar;
 	struct archive_entry *ae;
 	off_t total_size;
+	struct thor_data_src_entry **entries;
+	STAILQ_HEAD(ent, entry_container) ent;
 };
 
 static off_t tar_get_file_length(struct thor_data_src *src)
@@ -84,7 +92,13 @@ static void tar_release(struct thor_data_src *src)
 {
 	struct tar_data_src *tardata =
 		container_of(src, struct tar_data_src, src);
+	struct entry_container *container;
 
+	while (!STAILQ_EMPTY(&tardata->ent)) {
+		container = STAILQ_FIRST(&tardata->ent);
+		STAILQ_REMOVE_HEAD(&tardata->ent, node);
+		free(container);
+	}
 	archive_read_close(tardata->ar);
 	archive_read_finish(tardata->ar);
 	archive_entry_free(tardata->ae);
@@ -132,7 +146,14 @@ static int tar_calculate_total(const char *path, struct tar_data_src *tardata)
 {
 	struct archive *ar;
 	struct archive_entry *ae;
+	char *name;
+	off_t size;
+	struct entry_container *container;
+	int i;
 	int ret;
+
+	STAILQ_INIT(&tardata->ent);
+	tardata->entries = NULL;
 
 	/*
 	 * Yes this is very ugly but libarchive doesn't
@@ -143,7 +164,7 @@ static int tar_calculate_total(const char *path, struct tar_data_src *tardata)
 		goto out;
 
 	tardata->total_size = 0;
-	while (1) {
+	for (i = 0; 1; ++i) {
 		ret = archive_read_next_header2(ar, ae);
 		if (ret == ARCHIVE_EOF) {
 			break;
@@ -152,16 +173,59 @@ static int tar_calculate_total(const char *path, struct tar_data_src *tardata)
 			goto cleanup;
 		}
 
-		tardata->total_size += archive_entry_size(ae);
+		name = strdup(archive_entry_pathname(ae));
+		if (!name) {
+			ret = -ENOMEM;
+			goto cleanup;
+		}
+
+		size = archive_entry_size(ae);
+		tardata->total_size += size;
+
+		container = calloc(1, sizeof(*container));
+		if (!container) {
+			free(name);
+			ret = -ENOMEM;
+			goto cleanup;
+		}
+
+		container->entry.name = name;
+		container->entry.size = size;
+		STAILQ_INSERT_TAIL(&tardata->ent, container, node);
 	}
+
+	tardata->entries = calloc(i + 1, sizeof(*(tardata->entries)));
+	if (!tardata->entries) {
+		ret = -ENOMEM;
+		goto cleanup;
+	}
+
+	i = 0;
+	STAILQ_FOREACH(container, &tardata->ent, node)
+		tardata->entries[i++] = &container->entry;
 
 	ret = 0;
 cleanup:
+	if (ret) {
+		while (!STAILQ_EMPTY(&tardata->ent)) {
+			container = STAILQ_FIRST(&tardata->ent);
+			STAILQ_REMOVE_HEAD(&tardata->ent, node);
+			free(container);
+		}
+	}
 	archive_read_close(ar);
 	archive_read_finish(ar);
 	archive_entry_free(ae);
 out:
 	return ret;
+}
+
+static struct thor_data_src_entry **tar_get_entries(struct thor_data_src *src)
+{
+	struct tar_data_src *tardata =
+		container_of(src, struct tar_data_src, src);
+
+	return tardata->entries;
 }
 
 int t_tar_get_data_src(const char *path, struct thor_data_src **data)
@@ -183,6 +247,7 @@ int t_tar_get_data_src(const char *path, struct thor_data_src **data)
 	tdata->src.get_block = tar_get_data_block;
 	tdata->src.get_name = tar_get_file_name;
 	tdata->src.next_file = tar_next_file;
+	tdata->src.get_entries = tar_get_entries;
 	tdata->src.release = tar_release;
 
 	ret = tar_calculate_total(path, tdata);

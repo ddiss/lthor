@@ -117,9 +117,8 @@ static int init_data_parts(const char *pitfile, char **tarfilelist,
 	}
 
 	while (*tarfilelist) {
-		printf(TERM_YELLOW "%s :" TERM_NORMAL "\n" , *tarfilelist);
 		data_parts[entry].type = THOR_NORMAL_DATA;
-		data_parts[0].name = *tarfilelist;
+		data_parts[entry].name = *tarfilelist;
 		ret = thor_get_data_src(*tarfilelist, THOR_FORMAT_TAR,
 					&(data_parts[entry].data));
 		if (ret) {
@@ -290,17 +289,18 @@ static int process_download(struct thor_device_id *dev_id, const char *pitfile,
 
 	/* Count the total size of data */
 	for (i = 0; i < entries; ++i) {
-		off_t size = data_parts[i].data->get_size(data_parts[i].data);
+		struct thor_data_src *dsrc = data_parts[i].data;
+		off_t size = dsrc->get_size(dsrc);
+		struct thor_data_src_entry **ent;
 
-		switch (data_parts[i].type) {
-		case THOR_PIT_DATA:
-			printf(TERM_YELLOW "%s :" TERM_NORMAL "%jdk\n",
-			       data_parts[i].name, (intmax_t)(size/KB));
-			break;
-		case THOR_NORMAL_DATA:
-		default:
-			break;
-		}
+		printf(TERM_YELLOW "%s :\n" TERM_NORMAL, data_parts[i].name);
+
+		for (ent = dsrc->get_entries(dsrc); ent && *ent; ++ent)
+			printf("[" TERM_LIGHT_GREEN "%s" TERM_NORMAL "]"
+			       "\t %jdk\n",
+			       (*ent)->name,
+			       (intmax_t)((*ent)->size/KB));
+
 		total_size += size;
 	}
 
