@@ -1,2 +1,1 @@
-SUBSYSTEM=="tty", KERNEL=="ttyACM*", MODE="0666"
-SUBSYSTEM=="tty", KERNEL=="ttyACM*", ATTRS{idVendor}=="04e8", ATTRS{idProduct}=="685d", ENV{ID_MM_CANDIDATE}="null"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="04e8", ATTRS{idProduct}=="685d", MODE="0666"
