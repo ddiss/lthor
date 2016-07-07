@@ -3,14 +3,32 @@ Except as noted, this software is licensed under Apache License, Version 2.
 Please, see the LICENSE.APLv2 file for Apache License terms and conditions.
 
 ----------------------------------------------------------------------------
+Requirements:
+- pkg-config
+  http://www.freedesktop.org/wiki/Software/pkg-config/
+  
+- libusb >= v1.0.17
+  http://libusb.info/
+  
+- libarchive
+  http://www.libarchive.org/
+
+As recently VID and PID used by lthor downloaders has been
+black listed in CDC ACM kernel driver, lthor since version 2.0
+uses libusb for communication.
+
 <OS X>
 
 (Requirements: OS X 10.7, 10.8)
-For OS X 'pkg-config' package is required. It can be downloaded from:
-http://www.freedesktop.org/wiki/Software/pkg-config/
 
-The libarchive download is available at:
-http://www.libarchive.org/
+To use lthor >= v2.0 it is required to unbind CDC ACM
+driver from the device. This can be done using this:
 
-On OS X always execute lthor with -d /dev/cu.MYDEV
-ex) lthor -d /dev/cu.SAMSUNG_VSP *.tar
+$ kextstat | grep AppleUSBCDC | awk '{print $6}' | xargs -L1 -I{} sudo
+kextunload -b {}
+
+WARNING:
+This command unbinds CDC driver from all devices in system.
+
+This can be also achieved by writing codeless kext for device with
+suitable VID and PID.
