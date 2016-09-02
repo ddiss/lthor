@@ -97,6 +97,7 @@ static void tar_release(struct thor_data_src *src)
 	while (!STAILQ_EMPTY(&tardata->ent)) {
 		container = STAILQ_FIRST(&tardata->ent);
 		STAILQ_REMOVE_HEAD(&tardata->ent, node);
+		free(container->entry.name);
 		free(container);
 	}
 	free(tardata->entries);
