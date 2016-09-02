@@ -426,8 +426,11 @@ static int t_thor_send_raw_data(thor_device_handle *th,
 cancel_chunks:
 	for (j = 0; j < i; ++j)
 		t_thor_cancel_chunk(chunk + j);
-	if (i)
+	if (i) {
+		transfer_data.completed = 0;
 		t_thor_handle_events(&transfer_data);
+	}
+
 	i = ARRAY_SIZE(chunk);
 cleanup_chunks:
 	for (j = 0; j < i; ++j)
