@@ -63,6 +63,8 @@ static int test_tar_file_list(char **tarfilelist)
 		thor_release_data_src(data);
 		if (ret)
 			goto error;
+
+		++tarfilelist;
 	}
 
 	return 0;

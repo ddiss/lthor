@@ -464,6 +464,9 @@ int thor_send_data(thor_device_handle *th, struct thor_data_src *data,
 		int_data[0] = type;
 		int_data[1] = filesize;
 
+		if (!th)
+			continue;
+
 		ret = t_thor_exec_cmd_full(th, RQT_DL, RQT_DL_FILE_INFO,
 					   int_data, ARRAY_SIZE(int_data),
 					   (char **)&filename, 1, &resp);
