@@ -99,6 +99,7 @@ static void tar_release(struct thor_data_src *src)
 		STAILQ_REMOVE_HEAD(&tardata->ent, node);
 		free(container);
 	}
+	free(tardata->entries);
 	archive_read_close(tardata->ar);
 	archive_read_finish(tardata->ar);
 	archive_entry_free(tardata->ae);
