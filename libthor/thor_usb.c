@@ -73,6 +73,7 @@ static int check_busid_match(const char *expected, libusb_device *dev)
 	expected = strchr(expected, '-');
 	if (!expected)
 		return -EINVAL;
+	++expected;
 
 	nports = libusb_get_port_numbers(dev, (uint8_t *)dev_port, sizeof(dev_port));
 	if (nports < 0)
@@ -94,6 +95,7 @@ static int check_busid_match(const char *expected, libusb_device *dev)
 			else
 				break;
 		}
+		++expected;
 	}
 
 	return 0;
