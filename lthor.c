@@ -349,8 +349,8 @@ static void usage(const char *exename)
 		"  -t, --test                         Don't flash, just check if given tar files are correct\n"
 		"  -v, --verbose                      Be more verbose\n"
 		"  -c, --check                        Don't flash, just check if given tty port is thor capable\n"
-		"  -p=<pitfile>, --pitfile=<pitfile>  Flash new partition table\n"
-		"  -b=<busid>, --busid=<busid>        Flash device with given busid\n"
+		"  -p <pitfile>, --pitfile=<pitfile>  Flash new partition table\n"
+		"  -b <busid>, --busid=<busid>        Flash device with given busid\n"
 		"  --vendor-id=<vid>                  Flash device with given Vendor ID\n"
 		"  --product-id=<pid>                 Flash device with given Product ID\n"
 		"  --serial=<serialno>                Flash device with given Serial Number\n"
@@ -364,7 +364,7 @@ static void d_opt_obsolete()
 	fprintf(stderr,
 		"--port, -p options are obsolete.\n"
 		"Instead you may use:"
-		"  -b=<busid>, --busid=<busid>        Flash device with given busid\n"
+		"  -b <busid>, --busid=<busid>        Flash device with given busid\n"
 		"  --vendor-id=<vid>                  Flash device with given Vendor ID\n"
 		"  --product-id=<pid>                 Flash device with given Product ID\n"
 		"  --serial=<serialno>                Flash device with given Serial Number\n");
