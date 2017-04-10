@@ -174,19 +174,20 @@ static double timediff(struct timeval *atv, struct timeval *btv)
 }
 
 static void report_progress(thor_device_handle *th, struct thor_data_src *data,
-			    int sent, int left, int chunk_nmb, void *user_data)
+			    unsigned int sent, unsigned int left, int chunk_nmb,
+			    void *user_data)
 {
 	struct time_data *tdata = user_data;
 	struct timeval *start_time = &tdata->start_time;
 	struct timeval *last_time = &tdata->last_time;
 	struct timeval current_time;
 	double diff;
-	int sent_kb = sent/KB;
-	int total_kb = (sent + left)/KB;
+	unsigned int sent_kb = sent/KB;
+	unsigned int total_kb = (sent + left)/KB;
 	char progress [4] = { '-', '\\', '|', '/' };
 	char c = progress[(sent_kb/30)%4];
 
-	fprintf(stderr, "\x1b[1A\x1b[16C%c sending %6dk/%6dk %3d%% block %-6d",
+	fprintf(stderr, "\x1b[1A\x1b[16C%c sending %6uk/%6uk %3u%% block %-6d",
 		c, sent_kb, total_kb, ((sent_kb*100)/total_kb), chunk_nmb);
 
 	gettimeofday(&current_time, NULL);

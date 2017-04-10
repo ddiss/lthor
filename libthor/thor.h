@@ -58,8 +58,8 @@ enum thor_data_src_format {
 
 typedef void (*thor_progress_cb)(thor_device_handle *th,
 				 struct thor_data_src *data,
-				 int sent, int left, int chunk_nmb,
-				 void *user_data);
+				 unsigned int sent, unsigned int left,
+				 int chunk_nmb, void *user_data);
 
 typedef void (*thor_next_entry_cb)(thor_device_handle *th,
 				 struct thor_data_src *data,
