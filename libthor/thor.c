@@ -88,6 +88,34 @@ static int t_thor_do_handshake(struct thor_device_handle *th)
 	return 0;
 }
 
+static int odin_do_handshake(struct thor_device_handle *th)
+{
+	char challenge[] = "ODIN";
+	char response[] = "LOKE";
+	char buffer[sizeof(response)];
+	int ret;
+
+	fprintf(stderr, "sending challenge...\n");
+	ret = t_usb_send(th, (unsigned char *)challenge, sizeof(challenge) - 1,
+			 DEFAULT_TIMEOUT);
+	if (ret < 0)
+		return ret;
+
+	fprintf(stderr, "receiving challenge response...\n");
+	ret = t_usb_recv(th, (unsigned char *)buffer, sizeof(buffer) - 1,
+			 DEFAULT_TIMEOUT);
+	if (ret < 0)
+		return ret;
+
+	buffer[sizeof(buffer) - 1] = '\0';
+
+	if (strcmp(buffer, response))
+		return -EINVAL;
+	fprintf(stderr, "handshake successful\n");
+
+	return 0;
+}
+
 int thor_open(struct thor_device_id *user_dev_id, int wait,
 	      thor_device_handle **handle)
 {
@@ -109,7 +137,10 @@ int thor_open(struct thor_device_id *user_dev_id, int wait,
 	if (ret)
 		goto close_dev;
 
-	ret = t_thor_do_handshake(th);
+	if (user_dev_id->odin_mode)
+		ret = odin_do_handshake(th);
+	else
+		ret = t_thor_do_handshake(th);
 	if (ret) {
 		ret = -EINVAL;
 		goto close_dev;

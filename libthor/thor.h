@@ -22,6 +22,7 @@
 #include <stddef.h>
 
 struct thor_device_id {
+	int odin_mode;
 	const char *busid;
 	int vid;
 	int pid;

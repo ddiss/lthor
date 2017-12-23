@@ -270,6 +270,12 @@ static int process_download(struct thor_device_id *dev_id, const char *pitfile,
 	int i;
 	int ret;
 
+	if (dev_id->odin_mode) {
+		fprintf(stderr,
+		       "device download doesn't currently support Odin mode\n");
+		return -EOPNOTSUPP;
+	}
+
 	ret = thor_open(dev_id, 1, &th);
 	if (ret) {
 		fprintf(stderr, "Unable to open device: %d\n", ret);
@@ -350,6 +356,7 @@ static void usage(const char *exename)
 		"  -t, --test                         Don't flash, just check if given tar files are correct\n"
 		"  -v, --verbose                      Be more verbose\n"
 		"  -c, --check                        Don't flash, just check if given tty port is thor capable\n"
+		"  -o, --odin                         Use the Odin protocol with Samsung Download Mode devices (experimental!)\n"
 		"  -p <pitfile>, --pitfile=<pitfile>  Flash new partition table\n"
 		"  -b <busid>, --busid=<busid>        Flash device with given busid\n"
 		"  --vendor-id=<vid>                  Flash device with given Vendor ID\n"
@@ -377,11 +384,12 @@ int main(int argc, char **argv)
 	const char *exename = NULL, *pitfile = NULL;
 	int opt;
 	int opt_test = 0;
-	int opt_check = 0;
 	int opt_verbose = 0; /* unused for now */
+	int opt_check = 0;
 	int optindex;
 	int ret;
 	struct thor_device_id dev_id = {
+		.odin_mode = 0,
 		.busid = NULL,
 		.vid = -1,
 		.pid = -1,
@@ -392,6 +400,7 @@ int main(int argc, char **argv)
 		{"test", no_argument, 0, 't'},
 		{"verbose", no_argument, 0, 'v'},
 		{"check", no_argument, 0, 'c'},
+		{"odin", no_argument, 0, 'o'},
 		{"port", required_argument, 0, 'd'},
 		{"pitfile", required_argument, 0, 'p'},
 		{"busid", required_argument, 0, 'b'},
@@ -416,7 +425,7 @@ int main(int argc, char **argv)
 	}
 
 	while (1) {
-		opt = getopt_long(argc, argv, "tvcd:p:b:", opts, &optindex);
+		opt = getopt_long(argc, argv, "tvcod:p:b:", opts, &optindex);
 		if (opt == -1)
 			break;
 
@@ -429,6 +438,9 @@ int main(int argc, char **argv)
 			break;
 		case 'c':
 			opt_check = 1;
+			break;
+		case 'o':
+			dev_id.odin_mode = 1;
 			break;
 		case 'd':
 			d_opt_obsolete();
