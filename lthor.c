@@ -351,7 +351,7 @@ close_dev:
 static void usage(const char *exename)
 {
 	fprintf(stderr,
-		"Usage: %s: [options] [-d port] [-p pitfile] [tar] [tar] ..\n"
+		"Usage: %s: [options] [-p pitfile] [tar] [tar] ..\n"
 		"Options:\n"
 		"  -t, --test                         Don't flash, just check if given tar files are correct\n"
 		"  -v, --verbose                      Be more verbose\n"
@@ -364,18 +364,6 @@ static void usage(const char *exename)
 		"  --serial=<serialno>                Flash device with given Serial Number\n"
 		"  --help                             Print this help message\n",
 		exename);
-	exit(1);
-}
-
-static void d_opt_obsolete()
-{
-	fprintf(stderr,
-		"--port, -p options are obsolete.\n"
-		"Instead you may use:"
-		"  -b <busid>, --busid=<busid>        Flash device with given busid\n"
-		"  --vendor-id=<vid>                  Flash device with given Vendor ID\n"
-		"  --product-id=<pid>                 Flash device with given Product ID\n"
-		"  --serial=<serialno>                Flash device with given Serial Number\n");
 	exit(1);
 }
 
@@ -425,7 +413,7 @@ int main(int argc, char **argv)
 	}
 
 	while (1) {
-		opt = getopt_long(argc, argv, "tvcod:p:b:", opts, &optindex);
+		opt = getopt_long(argc, argv, "tvco:p:b:", opts, &optindex);
 		if (opt == -1)
 			break;
 
@@ -441,9 +429,6 @@ int main(int argc, char **argv)
 			break;
 		case 'o':
 			dev_id.odin_mode = 1;
-			break;
-		case 'd':
-			d_opt_obsolete();
 			break;
 		case 'p':
 			pitfile = optarg;
