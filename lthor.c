@@ -36,7 +36,7 @@
 #define TERM_RED         "\x1b[0;31;1m"
 #define TERM_NORMAL      "\x1b[0m"
 
-struct helper {
+struct dl_helper {
 	struct thor_data_src *data;
 	enum thor_data_type type;
 	const char *name;
@@ -99,7 +99,7 @@ static int count_files(char **list)
 }
 
 static int init_data_parts(const char *pitfile, char **tarfilelist,
-		    struct helper *data_parts)
+		    struct dl_helper *data_parts)
 {
 	int i;
 	int entry = 0;
@@ -205,7 +205,7 @@ static void report_progress(thor_device_handle *th, struct thor_data_src *data,
 	}
 }
 
-static int do_download(thor_device_handle *th, struct helper *data_parts,
+static int do_download(thor_device_handle *th, struct dl_helper *data_parts,
 		       int entries, off_t total_size)
 {
 	struct time_data tdata;
@@ -264,7 +264,7 @@ static int process_download(struct thor_device_id *dev_id, const char *pitfile,
 {
 	thor_device_handle *th;
 	off_t total_size = 0;
-	struct helper *data_parts;
+	struct dl_helper *data_parts;
 	int nfiles;
 	int entries = 0;
 	int i;
@@ -358,10 +358,10 @@ static void usage(const char *exename)
 		"  -c, --check                        Don't flash, just check if given tty port is thor capable\n"
 		"  -o, --odin                         Use the Odin protocol with Samsung Download Mode devices (experimental!)\n"
 		"  -p <pitfile>, --pitfile=<pitfile>  Flash new partition table\n"
-		"  -b <busid>, --busid=<busid>        Flash device with given busid\n"
-		"  --vendor-id=<vid>                  Flash device with given Vendor ID\n"
-		"  --product-id=<pid>                 Flash device with given Product ID\n"
-		"  --serial=<serialno>                Flash device with given Serial Number\n"
+		"  -b <busid>, --busid=<busid>        Use device with given busid\n"
+		"  --vendor-id=<vid>                  Use device with given Vendor ID\n"
+		"  --product-id=<pid>                 Use device with given Product ID\n"
+		"  --serial=<serialno>                Use device with given Serial Number\n"
 		"  --help                             Print this help message\n",
 		exename);
 	exit(1);
