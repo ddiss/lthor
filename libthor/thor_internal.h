@@ -21,6 +21,7 @@
 
 #include "thor.h"
 #include "thor-proto.h"
+#include "odin-proto.h"
 
 #define DEFAULT_TIMEOUT 4000 /* 4000 ms */
 
