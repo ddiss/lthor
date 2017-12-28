@@ -205,7 +205,7 @@ static void report_progress(thor_device_handle *th, struct thor_data_src *data,
 	}
 }
 
-static int do_download(thor_device_handle *th, struct dl_helper *data_parts,
+static int do_flash(thor_device_handle *th, struct dl_helper *data_parts,
 		       int entries, off_t total_size)
 {
 	struct time_data tdata;
@@ -259,7 +259,7 @@ out:
 	return ret;
 }
 
-static int process_download(struct thor_device_id *dev_id, const char *pitfile,
+static int process_flash(struct thor_device_id *dev_id, const char *pitfile,
 		     char **tarfilelist)
 {
 	thor_device_handle *th;
@@ -334,7 +334,7 @@ static int process_download(struct thor_device_id *dev_id, const char *pitfile,
 			TERM_NORMAL);
 	}
 
-	ret = do_download(th, data_parts, entries, total_size);
+	ret = do_flash(th, data_parts, entries, total_size);
 
 release_data_srcs:
 	for (i = 0; i < entries; ++i)
@@ -498,7 +498,7 @@ int main(int argc, char **argv)
 	else if (opt_check)
 		ret = check_proto(&dev_id);
 	else if (pitfile || argv[optind])
-		ret = process_download(&dev_id, pitfile, &(argv[optind]));
+		ret = process_flash(&dev_id, pitfile, &(argv[optind]));
 	else
 		usage(exename);
 
