@@ -98,7 +98,7 @@ static int count_files(char **list)
 	return i;
 }
 
-static int init_data_parts(const char *pitfile, char **tarfilelist,
+static int init_src_data_parts(const char *pitfile, char **tarfilelist,
 		    struct dl_helper *data_parts)
 {
 	int i;
@@ -290,7 +290,7 @@ static int process_flash(struct thor_device_id *dev_id, const char *pitfile,
 		goto close_dev;
 	}
 
-	entries = init_data_parts(pitfile, tarfilelist, data_parts);
+	entries = init_src_data_parts(pitfile, tarfilelist, data_parts);
 	if (entries < 0) {
 		ret = entries;
 		goto free_data_parts;
