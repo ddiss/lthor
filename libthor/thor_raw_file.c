@@ -44,6 +44,30 @@ static off_t file_get_file_length(struct thor_data_src *src)
 	return lseek(filedata->fd, 0, SEEK_END);
 }
 
+static int file_set_file_length(struct thor_data_src *src,
+				off_t len)
+{
+	int ret;
+	struct file_data_src *filedata =
+		container_of(src, struct file_data_src, src);
+
+	ret = ftruncate(filedata->fd, len);
+	if (ret < 0) {
+		return -errno;
+	}
+
+	return 0;
+}
+
+static off_t file_put_data_block(struct thor_data_src *src,
+				  void *data, off_t len)
+{
+	struct file_data_src *filedata =
+		container_of(src, struct file_data_src, src);
+
+	return write(filedata->fd, data, len);
+}
+
 static off_t file_get_data_block(struct thor_data_src *src,
 				  void *data, off_t len)
 {
