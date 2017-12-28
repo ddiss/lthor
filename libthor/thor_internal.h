@@ -43,6 +43,7 @@ struct thor_device_handle {
 	int data_interface_id;
 	int data_ep_in;
 	int data_ep_out;
+	int odin_mode;
 };
 
 struct t_usb_transfer;

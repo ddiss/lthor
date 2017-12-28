@@ -137,7 +137,9 @@ int thor_open(struct thor_device_id *user_dev_id, int wait,
 	if (ret)
 		goto close_dev;
 
-	if (user_dev_id->odin_mode)
+
+	th->odin_mode = user_dev_id->odin_mode;
+	if (th->odin_mode)
 		ret = odin_do_handshake(th);
 	else
 		ret = t_thor_do_handshake(th);
