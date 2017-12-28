@@ -123,7 +123,7 @@ int t_file_get_data_src(const char *path, struct thor_data_src **data)
 
 	ret = open(path, O_RDONLY);
 	if (ret < 0)
-		goto close_file;
+		goto err_free;
 
 	fdata->fd = ret;
 
@@ -160,7 +160,65 @@ int t_file_get_data_src(const char *path, struct thor_data_src **data)
 
 close_file:
 	close(ret);
+err_free:
 	free(fdata);
 	return -EINVAL;
 }
 
+int t_file_get_data_dest(const char *path, struct thor_data_src **data)
+{
+	int ret;
+	char *basefile;
+	struct file_data_src *fdata;
+	mode_t old_mask;
+
+	fdata = calloc(sizeof(*fdata), 1);
+	if (!fdata)
+		return -1;
+
+	/* make only visible to user */
+	old_mask = umask(S_IRGRP | S_IWGRP | S_IXGRP
+			 | S_IROTH | S_IWOTH | S_IXOTH);
+
+	ret = open(path, O_WRONLY | O_CREAT | O_EXCL);
+	umask(old_mask);
+	if (ret < 0)
+		goto err_free;
+
+	fdata->fd = ret;
+
+	basefile = strdup(path);
+	if (!basefile)
+		goto close_file;
+
+	fdata->filename = strdup(basename(basefile));
+	free(basefile);
+	if (!fdata->filename)
+		goto close_file;
+
+	lseek(fdata->fd, 0, SEEK_SET);
+
+	fdata->entry.name = (char *)fdata->filename;
+	fdata->entry.size = 0;
+	fdata->ent[0] = &fdata->entry;
+	fdata->ent[1] = NULL;
+	fdata->src.get_file_length = file_get_file_length;
+	fdata->src.set_file_length = file_set_file_length;
+	fdata->src.get_size = file_get_file_length;
+	fdata->src.get_block = file_get_data_block;
+	fdata->src.put_block = file_put_data_block;
+	fdata->src.get_name = file_get_file_name;
+	fdata->src.release = file_release;
+	fdata->src.next_file = file_next_file;
+	fdata->src.get_entries = file_get_entries;
+	fdata->pos = 0;
+
+	*data = &fdata->src;
+	return 0;
+
+close_file:
+	close(fdata->fd);
+err_free:
+	free(fdata);
+	return -EINVAL;
+}

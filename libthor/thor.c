@@ -559,6 +559,23 @@ int thor_get_data_src(const char *path, enum thor_data_src_format format,
 	return ret;
 }
 
+int thor_get_data_dest(const char *path, enum thor_data_src_format format,
+		      struct thor_data_src **data)
+{
+	int ret;
+
+	switch (format) {
+	case THOR_FORMAT_RAW:
+		ret = t_file_get_data_dest(path, data);
+		break;
+	default:
+		/* THOR_FORMAT_TAR not yet supported as a dest */
+		ret = -ENOTSUP;
+	}
+
+	return ret;
+}
+
 void thor_release_data_src(struct thor_data_src *data)
 {
 	if (data->release)

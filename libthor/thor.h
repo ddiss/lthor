@@ -100,6 +100,10 @@ int thor_end_session(thor_device_handle *th);
 int thor_get_data_src(const char *path, enum thor_data_src_format format,
 		      struct thor_data_src **data);
 
+/* Open a standard file as data sink for thor */
+int thor_get_data_dest(const char *path, enum thor_data_src_format format,
+		       struct thor_data_src **data);
+
 /* Release data source */
 void thor_release_data_src(struct thor_data_src *data);
 
