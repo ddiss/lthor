@@ -30,8 +30,7 @@
 struct file_data_src {
 	struct thor_data_src src;
 	int fd;
-	const char* filename;
-	off_t filesize;
+	const char *filename;
 	int pos;
 	struct thor_data_src_entry entry;
 	struct thor_data_src_entry *ent[2];
@@ -42,7 +41,7 @@ static off_t file_get_file_length(struct thor_data_src *src)
 	struct file_data_src *filedata =
 		container_of(src, struct file_data_src, src);
 
-	return filedata->filesize;
+	return lseek(filedata->fd, 0, SEEK_END);
 }
 
 static off_t file_get_data_block(struct thor_data_src *src,
@@ -117,11 +116,10 @@ int t_file_get_data_src(const char *path, struct thor_data_src **data)
 	if (!fdata->filename)
 		goto close_file;
 
-	fdata->filesize = lseek(fdata->fd, 0, SEEK_END);
 	lseek(fdata->fd, 0, SEEK_SET);
 
 	fdata->entry.name = (char *)fdata->filename;
-	fdata->entry.size = fdata->filesize;
+	fdata->entry.size = lseek(fdata->fd, 0, SEEK_END);
 	fdata->ent[0] = &fdata->entry;
 	fdata->ent[1] = NULL;
 	fdata->src.get_file_length = file_get_file_length;
