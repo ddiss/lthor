@@ -348,12 +348,21 @@ close_dev:
 	return ret;
 }
 
+static int process_dump(struct thor_device_id *dev_id, const char *pitfile,
+			char **tarfilelist)
+{
+	fprintf(stderr, "dump functionality not currently implemented\n");
+	return -EOPNOTSUPP;
+}
+
 static void usage(const char *exename)
 {
 	fprintf(stderr,
 		"Usage: %s: [options] [-p pitfile] [tar] [tar] ..\n"
 		"Options:\n"
-		"  -t, --test                         Don't flash, just check if given tar files are correct\n"
+		"  -F, --flash                        Flash device (host -> device)\n"
+		"  -D, --dump                         Dump device (host <- device)\n"
+		"  -t, --test                         No I/O, just check if given tar files are correct\n"
 		"  -v, --verbose                      Be more verbose\n"
 		"  -c, --check                        Don't flash, just check if given tty port is thor capable\n"
 		"  -o, --odin                         Use the Odin protocol with Samsung Download Mode devices (experimental!)\n"
@@ -371,6 +380,8 @@ int main(int argc, char **argv)
 {
 	const char *exename = NULL, *pitfile = NULL;
 	int opt;
+	int opt_flash = 0;
+	int opt_dump = 0;
 	int opt_test = 0;
 	int opt_verbose = 0; /* unused for now */
 	int opt_check = 0;
@@ -385,6 +396,8 @@ int main(int argc, char **argv)
 	};
 
 	struct option opts[] = {
+		{"flash", no_argument, 0, 'F'},
+		{"dump", no_argument, 0, 'D'},
 		{"test", no_argument, 0, 't'},
 		{"verbose", no_argument, 0, 'v'},
 		{"check", no_argument, 0, 'c'},
@@ -413,11 +426,17 @@ int main(int argc, char **argv)
 	}
 
 	while (1) {
-		opt = getopt_long(argc, argv, "tvco:p:b:", opts, &optindex);
+		opt = getopt_long(argc, argv, "FDtvco:p:b:", opts, &optindex);
 		if (opt == -1)
 			break;
 
 		switch (opt) {
+		case 'F':
+			opt_flash = 1;
+			break;
+		case 'D':
+			opt_dump = 1;
+			break;
 		case 't':
 			opt_test = 1;
 			break;
@@ -492,13 +511,29 @@ int main(int argc, char **argv)
 		}
 	}
 
+	if (opt_flash && opt_dump) {
+		fprintf(stderr,
+			"flash and dump options are mutually exclusive\n");
+		usage(exename);
+		return -1;	/* not reached */
+	}
+
+	if (opt_flash && ((pitfile == NULL) || (argv[optind] == NULL))) {
+		fprintf(stderr,
+			"flash option requires a pitfile or tar parameter\n");
+		usage(exename);
+		return -1;	/* not reached */
+	}
+
 	ret = 0;
 	if (opt_test)
 		ret = test_tar_file_list(&(argv[optind]));
 	else if (opt_check)
 		ret = check_proto(&dev_id);
-	else if (pitfile || argv[optind])
+	else if (opt_flash)
 		ret = process_flash(&dev_id, pitfile, &(argv[optind]));
+	else if (opt_dump)
+		ret = process_dump(&dev_id, pitfile, &(argv[optind]));
 	else
 		usage(exename);
 
