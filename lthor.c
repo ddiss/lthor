@@ -187,8 +187,9 @@ static void report_progress(thor_device_handle *th, struct thor_data_src *data,
 	char progress [4] = { '-', '\\', '|', '/' };
 	char c = progress[(sent_kb/30)%4];
 
-	fprintf(stderr, "\x1b[1A\x1b[16C%c sending %6uk/%6uk %3u%% block %-6d",
-		c, sent_kb, total_kb, ((sent_kb*100)/total_kb), chunk_nmb);
+	fprintf(stderr, "\x1b[1A\x1b[16C%c %s %6uk/%6uk %3u%% block %-6d",
+		c, (&data->put_block ? "receiving" : "sending"),
+		sent_kb, total_kb, ((sent_kb*100)/total_kb), chunk_nmb);
 
 	gettimeofday(&current_time, NULL);
 
@@ -259,8 +260,8 @@ out:
 	return ret;
 }
 
-static int process_flash(struct thor_device_id *dev_id, const char *pitfile,
-		     char **tarfilelist)
+static int process_flash(struct thor_device_id *dev_id, int opt_sd,
+			 const char *pitfile, char **tarfilelist)
 {
 	thor_device_handle *th;
 	off_t total_size = 0;
@@ -272,7 +273,13 @@ static int process_flash(struct thor_device_id *dev_id, const char *pitfile,
 
 	if (dev_id->odin_mode) {
 		fprintf(stderr,
-		       "device download doesn't currently support Odin mode\n");
+		       "device flash doesn't currently support Odin mode\n");
+		return -EOPNOTSUPP;
+	}
+
+	if (opt_sd) {
+		fprintf(stderr,
+		       "device flash doesn't currently support SD cards\n");
 		return -EOPNOTSUPP;
 	}
 
@@ -348,11 +355,144 @@ close_dev:
 	return ret;
 }
 
-static int process_dump(struct thor_device_id *dev_id, const char *pitfile,
-			char **tarfilelist)
+static int do_dump(thor_device_handle *th, int opt_sd,
+		   struct dl_helper *data_parts)
 {
-	fprintf(stderr, "dump functionality not currently implemented\n");
-	return -EOPNOTSUPP;
+	struct time_data tdata;
+	uint32_t chunk_size = 0;
+	uint32_t dump_total = 0;
+	int ret;
+
+	if (data_parts == NULL) {
+		fprintf(stderr, "data_parts is NULL\n");
+		return -EINVAL;
+	}
+
+	if (data_parts[0].type != THOR_PIT_DATA) {
+		fprintf(stderr, "Dump currently only supports PIT\n");
+		return -EINVAL;
+	}
+
+	ret = thor_odin_start_session(th, &chunk_size);
+	if (ret < 0) {
+		fprintf(stderr, "Unable to start session: %d\n", ret);
+		goto out;
+	}
+
+	if (chunk_size != 0) {
+		/* packet size changes are supported */
+		ret = thor_odin_session_set_xfer_size(th, 1048576);
+		if (ret < 0) {
+			fprintf(stderr, "set xfer size request failed: %d\n",
+				ret);
+			goto out;
+		}
+	}
+
+	if (opt_sd) {
+		ret = thor_odin_session_use_sd(th, opt_sd, &chunk_size);
+		if (ret < 0) {
+			fprintf(stderr, "SD card dump request failed: %d\n",
+				ret);
+			goto out;
+		}
+	}
+
+	fprintf(stderr, "\nDumping PIT from %s to file %s\n\n",
+		(opt_sd ? "SD card" : "eMMC"), data_parts[0].name);
+
+	ret = thor_odin_start_pit_dump(th, &dump_total);
+	if (ret < 0) {
+		fprintf(stderr, "Unable to start PIT dump: %d\n", ret);
+		goto out;
+	}
+
+	ret = thor_odin_recv_pit_data(th, chunk_size, dump_total,
+			     data_parts[0].data, data_parts[0].type,
+			     report_progress, &tdata, report_next_entry,
+			     &tdata);
+	if (ret < 0) {
+		fprintf(stderr, "\nfailed to dump to %s: %d\n",
+			data_parts[0].name, ret);
+		goto out;
+	}
+
+	ret = thor_odin_end_pit_dump(th);
+	if (ret < 0) {
+		fprintf(stderr, "Unable to end PIT dump: %d\n", ret);
+		goto out;
+	}
+
+	ret = thor_odin_end_session(th);
+	if (ret < 0)
+		fprintf(stderr, "end PIT dump session failed: %d\n", ret);
+
+	fprintf(stderr, "\nrequest target reboot : ");
+
+	ret = thor_odin_reboot(th);
+	if (ret < 0) {
+		fprintf(stderr, TERM_RED "failed" TERM_NORMAL"\n");
+		goto out;
+	} else {
+		fprintf(stderr, TERM_LIGHT_GREEN "success" TERM_NORMAL "\n");
+	}
+
+out:
+	return ret;
+}
+
+static int process_dump(struct thor_device_id *dev_id, int opt_sd,
+			 const char *pitfile, char **tarfilelist)
+{
+	thor_device_handle *th;
+	off_t total_size = 0;
+	struct dl_helper *data_parts;
+	int i;
+	int ret;
+
+	if (!dev_id->odin_mode) {
+		fprintf(stderr,
+		       "dump functionality currently only supports Odin mode\n");
+		return -EOPNOTSUPP;
+	}
+
+	if ((pitfile == NULL) || (count_files(tarfilelist) != 0)) {
+		fprintf(stderr,
+		       "dump currently only handles pitfile output\n");
+		return -EOPNOTSUPP;
+	}
+
+	/* only a single data part (pitfile) */
+	data_parts = calloc(1, sizeof(*data_parts));
+	if (!data_parts) {
+		return -ENOMEM;
+	}
+
+	data_parts[0].type = THOR_PIT_DATA;
+	data_parts[0].name = pitfile;
+	ret = thor_get_data_dest(pitfile, THOR_FORMAT_RAW,
+				 &(data_parts[0].data));
+	if (ret < 0) {
+		fprintf(stderr, "Unable to open pit file %s for dump: %s\n",
+			pitfile, strerror(-ret));
+		goto free_data_parts;
+	}
+
+	ret = thor_open(dev_id, 1, &th);
+	if (ret < 0) {
+		fprintf(stderr, "Unable to open device: %d\n", ret);
+		goto release_data;
+	}
+
+	ret = do_dump(th, opt_sd, data_parts);
+
+	thor_close(th);
+release_data:
+	thor_release_data_src(data_parts[0].data);
+free_data_parts:
+	free(data_parts);
+
+	return ret;
 }
 
 static void usage(const char *exename)
@@ -366,6 +506,7 @@ static void usage(const char *exename)
 		"  -v, --verbose                      Be more verbose\n"
 		"  -c, --check                        Don't flash, just check if given tty port is thor capable\n"
 		"  -o, --odin                         Use the Odin protocol with Samsung Download Mode devices (experimental!)\n"
+		"  -s, --sd                           Flash/dump SD card instead of eMMC (Odin only)\n"
 		"  -p <pitfile>, --pitfile=<pitfile>  Flash new partition table\n"
 		"  -b <busid>, --busid=<busid>        Use device with given busid\n"
 		"  --vendor-id=<vid>                  Use device with given Vendor ID\n"
@@ -385,6 +526,7 @@ int main(int argc, char **argv)
 	int opt_test = 0;
 	int opt_verbose = 0; /* unused for now */
 	int opt_check = 0;
+	int opt_sd = 0;
 	int optindex;
 	int ret;
 	struct thor_device_id dev_id = {
@@ -402,6 +544,7 @@ int main(int argc, char **argv)
 		{"verbose", no_argument, 0, 'v'},
 		{"check", no_argument, 0, 'c'},
 		{"odin", no_argument, 0, 'o'},
+		{"sd", no_argument, 0, 's'},
 		{"port", required_argument, 0, 'd'},
 		{"pitfile", required_argument, 0, 'p'},
 		{"busid", required_argument, 0, 'b'},
@@ -415,7 +558,8 @@ int main(int argc, char **argv)
 	printf("\n");
 	printf("Linux Thor downloader, version %s \n", PACKAGE_VERSION);
 	printf("Authors: Jaehoon You <jaehoon.you@samsung.com>\n"
-	       "         Krzysztof Opasiak <k.opasiak@samsung.com>\n\n");
+	       "         Krzysztof Opasiak <k.opasiak@samsung.com>\n"
+	       "         David Disseldorp <ddiss@samba.org>\n\n");
 
 	exename = argv[0];
 
@@ -426,7 +570,7 @@ int main(int argc, char **argv)
 	}
 
 	while (1) {
-		opt = getopt_long(argc, argv, "FDtvco:p:b:", opts, &optindex);
+		opt = getopt_long(argc, argv, "FDtvcosp:b:", opts, &optindex);
 		if (opt == -1)
 			break;
 
@@ -454,6 +598,9 @@ int main(int argc, char **argv)
 			break;
 		case 'b':
 			dev_id.busid = optarg;
+			break;
+		case 's':
+			opt_sd = 1;
 			break;
 		case 1:
 		{
@@ -531,9 +678,9 @@ int main(int argc, char **argv)
 	else if (opt_check)
 		ret = check_proto(&dev_id);
 	else if (opt_flash)
-		ret = process_flash(&dev_id, pitfile, &(argv[optind]));
+		ret = process_flash(&dev_id, opt_sd, pitfile, &(argv[optind]));
 	else if (opt_dump)
-		ret = process_dump(&dev_id, pitfile, &(argv[optind]));
+		ret = process_dump(&dev_id, opt_sd, pitfile, &(argv[optind]));
 	else
 		usage(exename);
 
