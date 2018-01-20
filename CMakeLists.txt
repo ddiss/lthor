@@ -7,6 +7,7 @@ SET(LIBTHOR_SRCS
 	libthor/thor_raw_file.c
 	libthor/thor_tar.c
 	libthor/thor_usb.c
+	libthor/odin-proto.c
 )
 
 SET(SRCS
