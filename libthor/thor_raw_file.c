@@ -38,10 +38,16 @@ struct file_data_src {
 
 static off_t file_get_file_length(struct thor_data_src *src)
 {
+	int ret;
+	struct stat buf;
 	struct file_data_src *filedata =
 		container_of(src, struct file_data_src, src);
 
-	return lseek(filedata->fd, 0, SEEK_END);
+	ret = fstat(filedata->fd, &buf);
+	if (ret < 0)
+		return -errno;
+
+	return buf.st_size;
 }
 
 static int file_set_file_length(struct thor_data_src *src,
@@ -62,19 +68,29 @@ static int file_set_file_length(struct thor_data_src *src,
 static off_t file_put_data_block(struct thor_data_src *src,
 				  void *data, off_t len)
 {
+	off_t ret;
 	struct file_data_src *filedata =
 		container_of(src, struct file_data_src, src);
 
-	return write(filedata->fd, data, len);
+	ret = write(filedata->fd, data, len);
+	if (ret < 0) {
+		ret = -errno;
+	}
+	return ret;
 }
 
 static off_t file_get_data_block(struct thor_data_src *src,
 				  void *data, off_t len)
 {
+	off_t ret;
 	struct file_data_src *filedata =
 		container_of(src, struct file_data_src, src);
 
-	return read(filedata->fd, data, len);
+	ret = read(filedata->fd, data, len);
+	if (ret < 0) {
+		ret = -errno;
+	}
+	return ret;
 }
 
 static const char *file_get_file_name(struct thor_data_src *src)
@@ -140,8 +156,6 @@ int t_file_get_data_src(const char *path, struct thor_data_src **data)
 	if (!fdata->filename)
 		goto close_file;
 
-	lseek(fdata->fd, 0, SEEK_SET);
-
 	fdata->entry.name = (char *)fdata->filename;
 	fdata->entry.size = lseek(fdata->fd, 0, SEEK_END);
 	fdata->ent[0] = &fdata->entry;
@@ -154,6 +168,7 @@ int t_file_get_data_src(const char *path, struct thor_data_src **data)
 	fdata->src.next_file = file_next_file;
 	fdata->src.get_entries = file_get_entries;
 	fdata->pos = 0;
+	lseek(fdata->fd, 0, SEEK_SET);
 
 	*data = &fdata->src;
 	return 0;
@@ -174,29 +189,31 @@ int t_file_get_data_dest(const char *path, struct thor_data_src **data)
 
 	fdata = calloc(sizeof(*fdata), 1);
 	if (!fdata)
-		return -1;
+		return -ENOMEM;
 
 	/* make only visible to user */
-	old_mask = umask(S_IRGRP | S_IWGRP | S_IXGRP
-			 | S_IROTH | S_IWOTH | S_IXOTH);
-
-	ret = open(path, O_WRONLY | O_CREAT | O_EXCL);
+	old_mask = umask(0077);
+	ret = open(path, O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
 	umask(old_mask);
-	if (ret < 0)
+	if (ret < 0) {
+		ret = -errno;
 		goto err_free;
+	}
 
 	fdata->fd = ret;
 
 	basefile = strdup(path);
-	if (!basefile)
+	if (!basefile) {
+		ret = -ENOMEM;
 		goto close_file;
+	}
 
 	fdata->filename = strdup(basename(basefile));
 	free(basefile);
-	if (!fdata->filename)
+	if (!fdata->filename) {
+		ret = -ENOMEM;
 		goto close_file;
-
-	lseek(fdata->fd, 0, SEEK_SET);
+	}
 
 	fdata->entry.name = (char *)fdata->filename;
 	fdata->entry.size = 0;
@@ -212,6 +229,7 @@ int t_file_get_data_dest(const char *path, struct thor_data_src **data)
 	fdata->src.next_file = file_next_file;
 	fdata->src.get_entries = file_get_entries;
 	fdata->pos = 0;
+	lseek(fdata->fd, 0, SEEK_SET);
 
 	*data = &fdata->src;
 	return 0;
@@ -220,5 +238,5 @@ close_file:
 	close(fdata->fd);
 err_free:
 	free(fdata);
-	return -EINVAL;
+	return ret;
 }
